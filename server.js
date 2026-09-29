@@ -1,170 +1,805 @@
-const express = require('express');
-const path = require('path');
-const crypto = require('crypto');
-const fs = require('fs');
-const dotenv = require('dotenv');
-const Razorpay = require('razorpay');
+const express = require("express");
+const path = require("path");
+const crypto = require("crypto");
+const dotenv = require("dotenv");
+const Razorpay = require("razorpay");
 
 dotenv.config();
+
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
-const DB_FILE = path.join(__dirname, 'data', 'bookings.json');
-fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
-if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '[]');
+
+/*
+|--------------------------------------------------------------------------
+| Configuration
+|--------------------------------------------------------------------------
+*/
+
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
+
+// Use a separate secret for signed booking/ticket tokens.
+// For quick testing, it falls back to Razorpay secret.
+const BOOKING_SIGNING_SECRET =
+  process.env.BOOKING_SIGNING_SECRET || RAZORPAY_KEY_SECRET;
 
 const TICKETS = {
-  stag: { name: 'Stag entry', price: 299, people: 1 },
-  couple: { name: 'Couple entry', price: 499, people: 2 },
-  group: { name: 'Group of five', price: 1099, people: 5 }
+  stag: {
+    name: "Stag entry",
+    price: 299,
+    people: 1
+  },
+
+  couple: {
+    name: "Couple entry",
+    price: 499,
+    people: 2
+  },
+
+  group: {
+    name: "Group of five",
+    price: 1099,
+    people: 5
+  }
 };
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || '',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || ''
-});
+const razorpay =
+  RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET
+    ? new Razorpay({
+      key_id: RAZORPAY_KEY_ID,
+      key_secret: RAZORPAY_KEY_SECRET
+    })
+    : null;
 
-function readBookings() { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); }
-function writeBookings(rows) { fs.writeFileSync(DB_FILE, JSON.stringify(rows, null, 2)); }
-function newBookingId() {
-  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
-  return `DR-${stamp}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+/*
+|--------------------------------------------------------------------------
+| Helpers
+|--------------------------------------------------------------------------
+*/
+
+function newReceipt() {
+  const time = Date.now().toString(36).toUpperCase();
+  const random = crypto.randomBytes(3).toString("hex").toUpperCase();
+
+  return `DR${time}${random}`.slice(0, 40);
 }
-function publicBooking(b) {
+
+function createToken(payload) {
+  if (!BOOKING_SIGNING_SECRET) {
+    throw new Error("BOOKING_SIGNING_SECRET is not configured.");
+  }
+
+  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
+
+  const signature = crypto
+    .createHmac("sha256", BOOKING_SIGNING_SECRET)
+    .update(encoded)
+    .digest("base64url");
+
+  return `${encoded}.${signature}`;
+}
+
+function verifyToken(token) {
+  if (!BOOKING_SIGNING_SECRET || typeof token !== "string") {
+    return null;
+  }
+
+  const parts = token.split(".");
+
+  if (parts.length !== 2) {
+    return null;
+  }
+
+  const [encoded, suppliedSignature] = parts;
+
+  const expectedSignature = crypto
+    .createHmac("sha256", BOOKING_SIGNING_SECRET)
+    .update(encoded)
+    .digest("base64url");
+
+  if (expectedSignature.length !== suppliedSignature.length) {
+    return null;
+  }
+
+  const valid = crypto.timingSafeEqual(
+    Buffer.from(expectedSignature),
+    Buffer.from(suppliedSignature)
+  );
+
+  if (!valid) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(
+      Buffer.from(encoded, "base64url").toString("utf8")
+    );
+  } catch {
+    return null;
+  }
+}
+
+function verifyRazorpaySignature(orderId, paymentId, signature) {
+  if (!RAZORPAY_KEY_SECRET || !orderId || !paymentId || !signature) {
+    return false;
+  }
+
+  const expected = crypto
+    .createHmac("sha256", RAZORPAY_KEY_SECRET)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+
+  const supplied = String(signature);
+
+  if (expected.length !== supplied.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(
+    Buffer.from(expected),
+    Buffer.from(supplied)
+  );
+}
+
+function verifyWebhookSignature(rawBody, signature) {
+  if (!WEBHOOK_SECRET || !signature || !rawBody) {
+    return false;
+  }
+
+  const expected = crypto
+    .createHmac("sha256", WEBHOOK_SECRET)
+    .update(rawBody)
+    .digest("hex");
+
+  const supplied = String(signature);
+
+  if (expected.length !== supplied.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(
+    Buffer.from(expected),
+    Buffer.from(supplied)
+  );
+}
+
+function normalizeUtr(value) {
+  return String(value ?? "").trim();
+}
+
+function getProviderReferences(payment) {
+  const acquirer = payment?.acquirer_data || {};
+
+  return [
+    acquirer.rrn,
+    acquirer.bank_transaction_id,
+    acquirer.transaction_id,
+    acquirer.upi_transaction_id
+  ]
+    .filter(Boolean)
+    .map(value => String(value).trim());
+}
+
+function buildTicketId(paymentId) {
+  const hash = crypto
+    .createHash("sha256")
+    .update(paymentId)
+    .digest("hex")
+    .slice(0, 10)
+    .toUpperCase();
+
+  return `DR-${hash}`;
+}
+
+function getTicketFromOrder(order, payment, utr) {
+  const notes = order.notes || {};
+
+  const type = String(notes.ticket_type || "");
+  const ticket = TICKETS[type];
+
+  if (!ticket) {
+    throw new Error("Invalid ticket type in Razorpay order.");
+  }
+
+  const quantity = Number(notes.quantity);
+
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+    throw new Error("Invalid ticket quantity in Razorpay order.");
+  }
+
+  const ticketId = buildTicketId(payment.id);
+
   return {
-    bookingId: b.bookingId,
-    name: b.name,
-    phone: b.phone,
-    email: b.email,
-    ticket: b.ticket,
-    quantity: b.quantity,
-    admits: b.admits,
-    amount: b.amount,
-    paymentId: b.paymentId,
-    utr: b.utr,
-    status: b.status,
-    createdAt: b.createdAt
+    ticketId,
+    bookingId: notes.booking_id || null,
+    name: notes.customer_name || "",
+    phone: notes.customer_phone || "",
+    email: notes.customer_email || "",
+    ticket: ticket.name,
+    ticketType: type,
+    quantity,
+    admits: ticket.people * quantity,
+    amount: ticket.price * quantity,
+    paymentId: payment.id,
+    razorpayOrderId: order.id,
+    utr,
+    status: "VERIFIED",
+    verifiedAt: new Date().toISOString()
   };
 }
 
-app.use(express.json({ limit: '100kb', verify: (req, res, buf) => { if (req.originalUrl === '/api/webhook') req.rawBody = Buffer.from(buf); } }));
-app.use(express.static(path.join(__dirname, 'public')));
+function publicTicket(ticket) {
+  return {
+    ticketId: ticket.ticketId,
+    bookingId: ticket.bookingId,
+    name: ticket.name,
+    phone: ticket.phone,
+    email: ticket.email,
+    ticket: ticket.ticket,
+    quantity: ticket.quantity,
+    admits: ticket.admits,
+    amount: ticket.amount,
+    paymentId: ticket.paymentId,
+    razorpayOrderId: ticket.razorpayOrderId,
+    utr: ticket.utr,
+    status: ticket.status,
+    verifiedAt: ticket.verifiedAt
+  };
+}
 
-app.get('/api/config', (req, res) => {
-  if (!process.env.RAZORPAY_KEY_ID) return res.status(503).json({ error: 'Razorpay is not configured on the server.' });
-  res.json({ keyId: process.env.RAZORPAY_KEY_ID });
+/*
+|--------------------------------------------------------------------------
+| WEBHOOK
+|
+| IMPORTANT:
+| This must be BEFORE express.json() so the raw request body is available
+| for Razorpay HMAC verification.
+|--------------------------------------------------------------------------
+*/
+
+app.post(
+  "/api/webhook",
+  express.raw({ type: "application/json" }),
+  (req, res) => {
+    try {
+      const signature = req.headers["x-razorpay-signature"];
+
+      if (!verifyWebhookSignature(req.body, signature)) {
+        return res.status(400).send("Invalid webhook signature");
+      }
+
+      const event = JSON.parse(req.body.toString("utf8"));
+
+      console.log("Razorpay webhook received:", event.event);
+
+      // We deliberately do not write to the local filesystem here.
+      // Later, connect this event to PostgreSQL/Neon for persistent storage.
+
+      return res.status(200).json({
+        received: true
+      });
+    } catch (error) {
+      console.error("Webhook error:", error);
+      return res.status(400).send("Invalid webhook payload");
+    }
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| Middleware
+|--------------------------------------------------------------------------
+*/
+
+app.use(express.json({ limit: "100kb" }));
+
+app.use(
+  express.static(path.join(__dirname, "public"))
+);
+
+/*
+|--------------------------------------------------------------------------
+| Health
+|--------------------------------------------------------------------------
+*/
+
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    service: "Dandiya Raas",
+    razorpayConfigured: Boolean(razorpay)
+  });
 });
 
-app.post('/api/orders', async (req, res) => {
-  try {
-    const { name, phone, email, type, qty } = req.body || {};
-    const t = TICKETS[type];
-    const q = Number(qty);
-    if (!t || !Number.isInteger(q) || q < 1 || q > 10) return res.status(400).json({ error: 'Invalid ticket selection.' });
-    if (typeof name !== 'string' || name.trim().length < 2) return res.status(400).json({ error: 'Invalid name.' });
-    if (!/^[6-9]\d{9}$/.test(String(phone))) return res.status(400).json({ error: 'Invalid mobile number.' });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) return res.status(400).json({ error: 'Invalid email.' });
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) return res.status(503).json({ error: 'Razorpay keys are not configured.' });
+/*
+|--------------------------------------------------------------------------
+| Razorpay Config
+|--------------------------------------------------------------------------
+*/
 
-    const amount = t.price * q * 100;
-    const bookingId = newBookingId();
-    const order = await razorpay.orders.create({
-      amount,
-      currency: 'INR',
-      receipt: bookingId,
-      notes: { booking_id: bookingId, ticket_type: type, quantity: String(q) }
+app.get("/api/config", (req, res) => {
+  if (!RAZORPAY_KEY_ID) {
+    return res.status(503).json({
+      error: "Razorpay Key ID is not configured."
+    });
+  }
+
+  return res.json({
+    keyId: RAZORPAY_KEY_ID
+  });
+});
+
+/*
+|--------------------------------------------------------------------------
+| CREATE ORDER
+|--------------------------------------------------------------------------
+*/
+
+app.post("/api/orders", async (req, res) => {
+  try {
+    if (!razorpay) {
+      return res.status(503).json({
+        error: "Razorpay is not configured on the server."
+      });
+    }
+
+    const {
+      name,
+      phone,
+      email,
+      type,
+      qty
+    } = req.body || {};
+
+    const ticket = TICKETS[type];
+    const quantity = Number(qty);
+
+    if (!ticket) {
+      return res.status(400).json({
+        error: "Invalid ticket type."
+      });
+    }
+
+    if (
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > 10
+    ) {
+      return res.status(400).json({
+        error: "Quantity must be between 1 and 10."
+      });
+    }
+
+    const customerName = String(name || "").trim();
+    const customerPhone = String(phone || "").trim();
+    const customerEmail = String(email || "").trim();
+
+    if (customerName.length < 2) {
+      return res.status(400).json({
+        error: "Enter a valid full name."
+      });
+    }
+
+    if (!/^[6-9]\d{9}$/.test(customerPhone)) {
+      return res.status(400).json({
+        error: "Enter a valid 10-digit mobile number."
+      });
+    }
+
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)
+    ) {
+      return res.status(400).json({
+        error: "Enter a valid email address."
+      });
+    }
+
+    const amountRupees = ticket.price * quantity;
+    const amountPaise = amountRupees * 100;
+
+    const receipt = newReceipt();
+
+    /*
+     * Create the order first.
+     * Razorpay recommends creating Orders on the server.
+     */
+    const razorpayOrder = await razorpay.orders.create({
+      amount: amountPaise,
+      currency: "INR",
+      receipt,
+      notes: {
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        customer_email: customerEmail,
+        ticket_type: type,
+        quantity: String(quantity)
+      }
     });
 
-    const rows = readBookings();
-    rows.push({ bookingId, name: name.trim(), phone: String(phone), email: String(email).trim(), type, ticket: t.name, quantity: q, admits: t.people * q, amount: t.price * q, razorpayOrderId: order.id, paymentId: null, signatureVerified: false, utr: null, status: 'ORDER_CREATED', ticketIssued: false, createdAt: new Date().toISOString() });
-    writeBookings(rows);
-    res.json({ orderId: order.id, amount: t.price * q, currency: 'INR', bookingId, keyId: process.env.RAZORPAY_KEY_ID });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Could not create payment order.' });
+    /*
+     * Create a signed booking token containing the Razorpay order ID.
+     * No local database/file is needed for this stage.
+     */
+    const bookingId = createToken({
+      orderId: razorpayOrder.id,
+      createdAt: Date.now()
+    });
+
+    /*
+     * We cannot update the order's notes after creation in this flow,
+     * so bookingId is returned to the frontend and tied cryptographically
+     * to the order ID.
+     */
+
+    return res.json({
+      ok: true,
+      bookingId,
+      orderId: razorpayOrder.id,
+      amount: amountRupees,
+      currency: "INR",
+      keyId: RAZORPAY_KEY_ID
+    });
+  } catch (error) {
+    console.error("Create order error:", error);
+
+    return res.status(500).json({
+      error: "Could not create Razorpay payment order."
+    });
   }
 });
 
-app.post('/api/verify-payment', async (req, res) => {
+/*
+|--------------------------------------------------------------------------
+| VERIFY RAZORPAY PAYMENT
+|--------------------------------------------------------------------------
+*/
+
+app.post("/api/verify-payment", async (req, res) => {
   try {
-    const { bookingId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
-    const rows = readBookings();
-    const b = rows.find(x => x.bookingId === bookingId);
-    if (!b) return res.status(404).json({ error: 'Booking not found.' });
-    if (b.razorpayOrderId !== razorpay_order_id) return res.status(400).json({ error: 'Order mismatch.' });
-
-    const expected = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(`${b.razorpayOrderId}|${razorpay_payment_id}`).digest('hex');
-    if (expected.length !== String(razorpay_signature).length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(String(razorpay_signature)))) return res.status(400).json({ error: 'Payment signature verification failed.' });
-
-    const payment = await razorpay.payments.fetch(razorpay_payment_id);
-    if (payment.order_id !== b.razorpayOrderId || payment.amount !== b.amount * 100 || payment.currency !== 'INR') return res.status(400).json({ error: 'Payment does not match this booking.' });
-    if (payment.status !== 'captured') return res.status(400).json({ error: `Payment status is ${payment.status}. Ticket cannot be issued yet.` });
-
-    b.paymentId = razorpay_payment_id;
-    b.signatureVerified = true;
-    b.status = 'PAYMENT_VERIFIED';
-    writeBookings(rows);
-    res.json({ ok: true, paymentId: b.paymentId, status: b.status, method: payment.method });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Could not verify the Razorpay payment.' });
-  }
-});
-
-app.post('/api/verify-utr', async (req, res) => {
-  try {
-    const { bookingId, utr } = req.body || {};
-    if (!/^\d{8,20}$/.test(String(utr || ''))) return res.status(400).json({ error: 'Enter a valid UTR/reference number.' });
-    const rows = readBookings();
-    const b = rows.find(x => x.bookingId === bookingId);
-    if (!b) return res.status(404).json({ error: 'Booking not found.' });
-    if (!b.signatureVerified || !b.paymentId || b.status !== 'PAYMENT_VERIFIED') return res.status(400).json({ error: 'The Razorpay payment has not been verified yet.' });
-    if (b.ticketIssued) return res.status(409).json({ error: 'A ticket has already been issued for this booking.', ticket: publicBooking(b) });
-
-    const duplicate = rows.find(x => x.utr === String(utr) && x.bookingId !== bookingId && x.ticketIssued);
-    if (duplicate) return res.status(409).json({ error: 'This UTR has already been used for another ticket.' });
-
-    const payment = await razorpay.payments.fetch(b.paymentId);
-    if (payment.status !== 'captured' || payment.amount !== b.amount * 100 || payment.order_id !== b.razorpayOrderId) return res.status(400).json({ error: 'Payment could not be confirmed.' });
-    if (payment.method !== 'upi') return res.status(400).json({ error: 'This booking was not paid using UPI. A UTR can only be checked for a UPI payment.' });
-
-    const acq = payment.acquirer_data || {};
-    const providerRefs = [acq.rrn, acq.bank_transaction_id, acq.transaction_id, acq.upi_transaction_id].filter(Boolean).map(String);
-    const normalized = String(utr).trim();
-    if (!providerRefs.includes(normalized)) return res.status(400).json({ error: 'UTR does not match the verified Razorpay UPI transaction. No ticket was issued.' });
-
-    b.utr = normalized;
-    b.status = 'VERIFIED';
-    b.ticketIssued = true;
-    writeBookings(rows);
-    res.json({ ok: true, ticket: publicBooking(b), message: 'UTR verified. Ticket is now available.' });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'UTR verification service failed. Please try again.' });
-  }
-});
-
-app.post('/api/webhook', express.raw({ type: 'application/json' }), (req, res) => {
-  try {
-    const signature = req.headers['x-razorpay-signature'];
-    if (!process.env.WEBHOOK_SECRET || !signature) return res.status(400).send('Webhook secret/signature missing');
-    const expected = crypto.createHmac('sha256', process.env.WEBHOOK_SECRET).update(req.rawBody || Buffer.from('')).digest('hex');
-    if (expected.length !== String(signature).length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(String(signature)))) return res.status(400).send('Invalid signature');
-    const event = JSON.parse(req.body.toString('utf8'));
-    const payment = event.payload?.payment?.entity;
-    if (payment?.order_id && payment.status === 'captured') {
-      const rows = readBookings();
-      const b = rows.find(x => x.razorpayOrderId === payment.order_id);
-      if (b && !b.paymentId) { b.paymentId = payment.id; b.status = 'PAYMENT_WEBHOOK_CAPTURED'; writeBookings(rows); }
+    if (!razorpay) {
+      return res.status(503).json({
+        error: "Razorpay is not configured."
+      });
     }
-    res.json({ received: true });
-  } catch (e) { console.error(e); res.status(400).send('Invalid webhook'); }
+
+    const {
+      bookingId,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature
+    } = req.body || {};
+
+    const booking = verifyToken(bookingId);
+
+    if (!booking) {
+      return res.status(400).json({
+        error: "Invalid booking token."
+      });
+    }
+
+    if (booking.orderId !== razorpay_order_id) {
+      return res.status(400).json({
+        error: "Order mismatch."
+      });
+    }
+
+    /*
+     * Verify Checkout signature on the backend.
+     */
+    const validSignature = verifyRazorpaySignature(
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature
+    );
+
+    if (!validSignature) {
+      return res.status(400).json({
+        error: "Payment signature verification failed."
+      });
+    }
+
+    /*
+     * Fetch the order directly from Razorpay.
+     */
+    const order = await razorpay.orders.fetch(
+      razorpay_order_id
+    );
+
+    /*
+     * Fetch the payment directly from Razorpay.
+     */
+    const payment = await razorpay.payments.fetch(
+      razorpay_payment_id
+    );
+
+    if (payment.order_id !== order.id) {
+      return res.status(400).json({
+        error: "Payment does not belong to this order."
+      });
+    }
+
+    if (
+      payment.amount !== order.amount ||
+      payment.currency !== "INR"
+    ) {
+      return res.status(400).json({
+        error: "Payment amount does not match the order."
+      });
+    }
+
+    if (payment.status !== "captured") {
+      return res.status(400).json({
+        error: `Payment status is ${payment.status}.`
+      });
+    }
+
+    return res.json({
+      ok: true,
+      bookingId,
+      orderId: order.id,
+      paymentId: payment.id,
+      status: "PAYMENT_VERIFIED",
+      method: payment.method
+    });
+  } catch (error) {
+    console.error("Payment verification error:", error);
+
+    return res.status(500).json({
+      error: "Could not verify the Razorpay payment."
+    });
+  }
 });
 
-app.get('/api/ticket/:bookingId', (req, res) => {
-  const b = readBookings().find(x => x.bookingId === req.params.bookingId);
-  if (!b || !b.ticketIssued) return res.status(404).json({ error: 'Ticket not available.' });
-  res.json(publicBooking(b));
+/*
+|--------------------------------------------------------------------------
+| VERIFY UTR / RRN
+|--------------------------------------------------------------------------
+|
+| This is NOT accepted as proof by itself.
+| The server independently fetches the Razorpay payment and compares
+| the entered UTR against Razorpay's UPI/acquirer references.
+|--------------------------------------------------------------------------
+*/
+
+app.post("/api/verify-utr", async (req, res) => {
+  try {
+    if (!razorpay) {
+      return res.status(503).json({
+        error: "Razorpay is not configured."
+      });
+    }
+
+    const {
+      bookingId,
+      paymentId,
+      utr
+    } = req.body || {};
+
+    const booking = verifyToken(bookingId);
+
+    if (!booking) {
+      return res.status(400).json({
+        error: "Invalid booking token."
+      });
+    }
+
+    const normalizedUtr = normalizeUtr(utr);
+
+    if (!/^\d{8,20}$/.test(normalizedUtr)) {
+      return res.status(400).json({
+        error: "Enter a valid UTR/reference number."
+      });
+    }
+
+    if (!paymentId) {
+      return res.status(400).json({
+        error: "Payment ID is required."
+      });
+    }
+
+    /*
+     * Fetch the original Razorpay order.
+     */
+    const order = await razorpay.orders.fetch(
+      booking.orderId
+    );
+
+    if (order.id !== booking.orderId) {
+      return res.status(400).json({
+        error: "Booking/order mismatch."
+      });
+    }
+
+    /*
+     * Fetch actual payment from Razorpay.
+     */
+    const payment = await razorpay.payments.fetch(
+      paymentId
+    );
+
+    if (payment.order_id !== order.id) {
+      return res.status(400).json({
+        error: "Payment does not belong to this booking."
+      });
+    }
+
+    if (payment.status !== "captured") {
+      return res.status(400).json({
+        error: "Payment has not been captured."
+      });
+    }
+
+    if (
+      payment.amount !== order.amount ||
+      payment.currency !== "INR"
+    ) {
+      return res.status(400).json({
+        error: "Payment amount does not match the order."
+      });
+    }
+
+    /*
+     * UTR/RRN verification only makes sense for UPI.
+     */
+    if (payment.method !== "upi") {
+      return res.status(400).json({
+        error: "This payment was not made through UPI."
+      });
+    }
+
+    /*
+     * Compare user's UTR with actual Razorpay provider references.
+     */
+    const providerReferences =
+      getProviderReferences(payment);
+
+    const utrMatches = providerReferences.some(
+      reference => reference === normalizedUtr
+    );
+
+    if (!utrMatches) {
+      return res.status(400).json({
+        error:
+          "UTR does not match the verified Razorpay UPI transaction. No ticket was issued."
+      });
+    }
+
+    /*
+     * UTR is valid.
+     * ONLY NOW create the ticket.
+     */
+    const ticket = getTicketFromOrder(
+      order,
+      payment,
+      normalizedUtr
+    );
+
+    /*
+     * Sign the ticket data so the browser cannot modify it.
+     */
+    const ticketToken = createToken({
+      ticket,
+      issuedAt: Date.now()
+    });
+
+    return res.json({
+      ok: true,
+      message:
+        "Payment and UTR verified. Ticket is now available.",
+      ticket: publicTicket(ticket),
+      ticketToken
+    });
+  } catch (error) {
+    console.error("UTR verification error:", error);
+
+    return res.status(500).json({
+      error:
+        "UTR verification service failed. Please try again."
+    });
+  }
 });
 
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.listen(PORT, () => console.log(`Dandiya Raas server running at http://localhost:${PORT}`));
+/*
+|--------------------------------------------------------------------------
+| VERIFY / RETRIEVE TICKET
+|--------------------------------------------------------------------------
+|
+| The ticket token is signed by the server.
+| Razorpay is checked again before returning the ticket.
+|--------------------------------------------------------------------------
+*/
+
+app.get("/api/ticket/:ticketToken", async (req, res) => {
+  try {
+    if (!razorpay) {
+      return res.status(503).json({
+        error: "Razorpay is not configured."
+      });
+    }
+
+    const token = req.params.ticketToken;
+
+    const payload = verifyToken(token);
+
+    if (!payload?.ticket) {
+      return res.status(404).json({
+        error: "Invalid or expired ticket."
+      });
+    }
+
+    const ticket = payload.ticket;
+
+    const order = await razorpay.orders.fetch(
+      ticket.razorpayOrderId
+    );
+
+    const payment = await razorpay.payments.fetch(
+      ticket.paymentId
+    );
+
+    if (
+      payment.order_id !== order.id ||
+      payment.status !== "captured" ||
+      payment.method !== "upi" ||
+      payment.amount !== order.amount ||
+      payment.currency !== "INR"
+    ) {
+      return res.status(400).json({
+        error: "Ticket payment could not be revalidated."
+      });
+    }
+
+    const providerReferences =
+      getProviderReferences(payment);
+
+    if (!providerReferences.includes(ticket.utr)) {
+      return res.status(400).json({
+        error: "Ticket UTR is no longer valid."
+      });
+    }
+
+    return res.json({
+      ok: true,
+      ticket: publicTicket(ticket)
+    });
+  } catch (error) {
+    console.error("Ticket retrieval error:", error);
+
+    return res.status(500).json({
+      error: "Could not validate the ticket."
+    });
+  }
+});
+
+/*
+|--------------------------------------------------------------------------
+| Frontend
+|--------------------------------------------------------------------------
+*/
+
+app.get("*", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "public", "index.html")
+  );
+});
+
+/*
+|--------------------------------------------------------------------------
+| Local + Vercel
+|--------------------------------------------------------------------------
+|
+| Vercel can deploy Express apps directly.
+| Local development still uses `npm start`.
+|--------------------------------------------------------------------------
+*/
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(
+      `Dandiya Raas running at http://localhost:${PORT}`
+    );
+  });
+}
+
+module.exports = app;
