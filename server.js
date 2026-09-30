@@ -340,54 +340,107 @@ app.get("/api/config", (req, res) => {
 
 app.post("/api/orders", async (req, res) => {
   try {
+    /* -----------------------------
+       Check configuration
+    ----------------------------- */
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({
+        success: false,
+        error: "Razorpay keys are missing in Vercel Environment Variables."
+      });
+    }
+
+    if (!DATABASE_URL) {
+      return res.status(500).json({
+        success: false,
+        error: "DATABASE_URL is missing in Vercel Environment Variables."
+      });
+    }
+
     const {
-      ticketType,
       name,
       phone,
       email,
+      type,
+      qty
     } = req.body;
 
-    if (!ticketType || !TICKETS[ticketType]) {
+    /* -----------------------------
+       Validate input
+    ----------------------------- */
+    if (!name || String(name).trim().length < 2) {
       return res.status(400).json({
         success: false,
-        message: "Invalid ticket type",
+        error: "Invalid customer name."
       });
     }
 
-    if (!name || !phone) {
+    if (!/^[6-9]\d{9}$/.test(String(phone))) {
       return res.status(400).json({
         success: false,
-        message: "Name and phone are required",
+        error: "Invalid mobile number."
       });
     }
 
-    const ticket = TICKETS[ticketType];
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid email address."
+      });
+    }
 
-    const bookingId = generateBookingId();
+    if (!TICKETS[type]) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid ticket type."
+      });
+    }
 
-    /* ---------------------------------------------
+    const quantity = Math.max(
+      1,
+      Math.min(10, parseInt(qty, 10) || 1)
+    );
+
+    const ticket = TICKETS[type];
+
+    /*
+     * ticket.amount is stored in PAISE:
+     * stag   = 29900
+     * couple = 49900
+     * group  = 109900
+     */
+    const totalAmountPaise =
+      ticket.amount * quantity;
+
+    /* -----------------------------
+       Create permanent booking ID
+    ----------------------------- */
+    const bookingId =
+      generateBookingId();
+
+    /* -----------------------------
        Create Razorpay order
-    --------------------------------------------- */
+    ----------------------------- */
+    const razorpayOrder =
+      await razorpay.orders.create({
+        amount: totalAmountPaise,
+        currency: "INR",
+        receipt: bookingId,
 
-    const order = await razorpay.orders.create({
-      amount: ticket.amount,
-      currency: "INR",
-      receipt: bookingId,
-      notes: {
-        booking_id: bookingId,
-        ticket_type: ticketType,
-        customer_name: String(name),
-        customer_phone: String(phone),
-      },
-    });
+        notes: {
+          booking_id: bookingId,
+          ticket_type: type,
+          quantity: String(quantity),
+          customer_name: String(name).trim(),
+          customer_phone: String(phone).trim()
+        }
+      });
 
-    /* ---------------------------------------------
-       Save booking BEFORE returning order
-    --------------------------------------------- */
-
+    /* -----------------------------
+       Save booking in PostgreSQL
+    ----------------------------- */
     await pool.query(
-      `INSERT INTO bookings
-            (
+      `INSERT INTO bookings (
                 booking_id,
                 ticket_type,
                 ticket_name,
@@ -399,49 +452,49 @@ app.post("/api/orders", async (req, res) => {
                 razorpay_order_id,
                 payment_status
             )
-            VALUES
-            (
-                $1,$2,$3,$4,$5,$6,$7,$8,$9,'created'
-            )`,
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [
         bookingId,
-        ticketType,
+        type,
         ticket.name,
-        ticket.count,
-        ticket.amount,
+        quantity,
+        totalAmountPaise,
         String(name).trim(),
         String(phone).trim(),
-        email ? String(email).trim() : null,
-        order.id,
+        String(email).trim(),
+        razorpayOrder.id,
+        "created"
       ]
     );
 
-    return res.json({
+    /* -----------------------------
+       IMPORTANT:
+       Return amount in RUPEES
+       because frontend displays
+       rupees.
+    ----------------------------- */
+
+    return res.status(200).json({
       success: true,
 
       bookingId,
 
-      orderId: order.id,
+      orderId: razorpayOrder.id,
 
-      amount: order.amount,
+      amount: totalAmountPaise / 100,
 
-      currency: order.currency,
+      currency: "INR",
 
-      keyId: RAZORPAY_KEY_ID,
-
-      ticket: {
-        type: ticketType,
-        name: ticket.name,
-        count: ticket.count,
-      },
+      keyId: RAZORPAY_KEY_ID
     });
 
   } catch (error) {
-    console.error("Create order error:", error);
+
+    console.error("CREATE ORDER ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Unable to create payment order",
+      error: error?.message || "Could not create payment order."
     });
   }
 });
