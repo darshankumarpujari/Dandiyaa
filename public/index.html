@@ -2483,6 +2483,10 @@
 
                 try {
 
+                    /* =========================================
+                       GET BOOKING ID
+                    ========================================= */
+
                     const bookingId =
                         paymentState.bookingId;
 
@@ -2492,10 +2496,9 @@
                         );
                     }
 
-                    /*
-                     * Get the verified ticket
-                     * from the server
-                     */
+                    /* =========================================
+                       GET VERIFIED TICKET FROM SERVER
+                    ========================================= */
 
                     const response = await fetch(
                         "/api/ticket/" +
@@ -2513,13 +2516,45 @@
                         );
                     }
 
-                    /*
-                     * Show ticket
-                     */
+                    /* =========================================
+                       GET TICKET DATA
+                    ========================================= */
+
+                    const ticket =
+                        data.ticket || data;
+
+                    /* =========================================
+                       FIX BOOKING ID FIELD NAME
+                       
+                       PostgreSQL/server returns:
+                           booking_id
+            
+                       Frontend ticket code may expect:
+                           bookingId
+                    ========================================= */
+
+                    ticket.bookingId =
+                        ticket.booking_id ||
+                        ticket.bookingId ||
+                        bookingId;
+
+                    /* =========================================
+                       MAKE SURE BOOKING ID IS VALID
+                    ========================================= */
+
+                    if (!ticket.bookingId) {
+                        throw new Error(
+                            "Verified booking ID could not be found."
+                        );
+                    }
+
+                    /* =========================================
+                       SHOW VERIFIED TICKET
+                    ========================================= */
 
                     showVerifiedTicket(
-                        data.ticket || data,
-                        bookingId
+                        ticket,
+                        ticket.bookingId
                     );
 
                 } catch (error) {
@@ -2549,75 +2584,170 @@
             $("#twa").onclick = () => window.open(waUrl(), "_blank", "noopener");
 
             function showVerifiedTicket(ticket, ticketToken) {
+
+                /*
+                 * The server returns PostgreSQL column names.
+                 * Convert them into the names used by the ticket UI.
+                 */
+
+                const bookingId =
+                    ticket.booking_id ||
+                    ticket.bookingId ||
+                    ticket.ticketId ||
+                    ticketToken;
+
+                const customerName =
+                    ticket.customer_name ||
+                    ticket.name ||
+                    "";
+
+                const customerPhone =
+                    ticket.customer_phone ||
+                    ticket.phone ||
+                    "";
+
+                const customerEmail =
+                    ticket.customer_email ||
+                    ticket.email ||
+                    "";
+
+                const ticketName =
+                    ticket.ticket_name ||
+                    ticket.ticket ||
+                    ticket.ticket_type ||
+                    "";
+
+                const quantity =
+                    Number(
+                        ticket.ticket_count ||
+                        ticket.quantity ||
+                        1
+                    );
+
+                const amount =
+                    Number(ticket.amount || 0) / 100;
+
+                const paymentId =
+                    ticket.razorpay_payment_id ||
+                    ticket.paymentId ||
+                    "";
+
+                /*
+                 * Store normalized ticket information.
+                 */
+
                 tk = {
-                    id: ticket.ticketId,
-                    name: ticket.name,
-                    phone: ticket.phone,
-                    email: ticket.email,
-                    type: ticket.ticket,
-                    q: ticket.quantity,
-                    ppl: ticket.admits,
-                    amount: ticket.amount,
-                    paymentId: ticket.paymentId,
-                    ticketToken
+                    id: bookingId,
+                    name: customerName,
+                    phone: customerPhone,
+                    email: customerEmail,
+                    type: ticketName,
+                    q: quantity,
+                    ppl: quantity,
+                    amount: amount,
+                    paymentId: paymentId,
+                    ticketToken: bookingId
                 };
+
+                /*
+                 * WhatsApp message
+                 */
 
                 tkMsg =
                     `Dandiya Raas 2026
 
-                    Booking ID: ${ticket.bookingId || ticket.ticketId}
+Booking ID: ${bookingId}
 
-                    Name: ${ticket.name}
+Name: ${customerName}
 
-                    Mobile: ${ticket.phone}
+Mobile: ${customerPhone}
 
-                    Email: ${ticket.email}
+Email: ${customerEmail}
 
-                    Ticket: ${ticket.ticket} × ${ticket.quantity}
+Ticket: ${ticketName} × ${quantity}
 
-                    Admits: ${ticket.admits}
+Admits: ${quantity}
 
-                    Amount Paid: ${inr(ticket.amount)}
+Amount Paid: ${inr(amount)}
 
-                    Payment Status: PAID
+Payment Status: PAID
 
-                    Please show this QR code at the entrance.`;
+Please show this QR code at the entrance.`;
 
                 $("#twa").hidden = !C.whatsapp;
 
+                /*
+                 * Generate QR code.
+                 *
+                 * The QR contains the secure ticket validation URL,
+                 * not just the booking ID.
+                 */
+
                 const box = $("#tq");
+
                 box.innerHTML = "";
 
                 const validationUrl =
                     window.location.origin +
                     "/api/ticket/verify/" +
-                    encodeURIComponent(ticketToken);
+                    encodeURIComponent(bookingId);
 
                 if (window.QRCode) {
+
                     new QRCode(box, {
                         text: validationUrl,
                         width: 190,
                         height: 190,
                         correctLevel: QRCode.CorrectLevel.M
                     });
+
                 } else {
+
                     box.textContent = "QR unavailable";
+
                 }
 
-                $("#tid").textContent = ticket.ticketId;
-                $("#tn").textContent = ticket.name;
-                $("#tm").textContent = ticket.phone;
-                $("#te").textContent = ticket.email;
-                $("#tt").textContent = ticket.ticket + " × " + ticket.quantity;
-                $("#tp").textContent = ticket.admits + (ticket.admits > 1 ? " people" : " person");
-                $("#ta").textContent = inr(ticket.amount);
-                $("#tpi").textContent = ticket.paymentId;
-                $("#tnote").textContent = "✅ Payment verified. Your ticket is valid. Scan the QR code at the event entrance.";
-                $("#mt").textContent = "Your ticket";
+                /*
+                 * Display ticket information.
+                 */
+
+                $("#tid").textContent = bookingId;
+
+                $("#tn").textContent = customerName;
+
+                $("#tm").textContent = customerPhone;
+
+                $("#te").textContent = customerEmail;
+
+                $("#tt").textContent =
+                    ticketName + " × " + quantity;
+
+                $("#tp").textContent =
+                    quantity +
+                    (quantity > 1 ? " people" : " person");
+
+                $("#ta").textContent =
+                    inr(amount);
+
+                $("#tpi").textContent =
+                    paymentId;
+
+                $("#tnote").textContent =
+                    "✅ Payment verified. Your ticket is valid. Scan the QR code at the event entrance.";
+
+                $("#mt").textContent =
+                    "Your ticket";
+
+                /*
+                 * Show ticket.
+                 */
 
                 W("t");
 
-                /* Automatically create/download the ticket after payment. */
+                /*
+                 * Automatically create/download the ticket.
+                 */
+
                 setTimeout(downloadTicket, 250);
             }
 
