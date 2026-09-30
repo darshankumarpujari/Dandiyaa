@@ -795,7 +795,7 @@ app.get("/api/ticket/:bookingId", async (req, res) => {
    FRONTEND FALLBACK
 ========================================================= */
 
-app.get("*", (req, res) => {
+app.get("/{*splat}", (req, res) => {
   res.sendFile(
     path.join(__dirname, "public", "index.html")
   );
