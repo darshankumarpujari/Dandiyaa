@@ -2322,34 +2322,99 @@
 
         async function verifyRazorpayPayment(response) {
             const err = $("#err2");
+
             $("#open-razorpay").disabled = true;
             $("#open-razorpay").textContent = "Verifying payment...";
             err.textContent = "";
 
             try {
+                /* Always take the payment ID directly from Razorpay response */
+                const paymentId =
+                    response?.razorpay_payment_id;
+
+                const orderId =
+                    response?.razorpay_order_id;
+
+                const signature =
+                    response?.razorpay_signature;
+
+                if (!paymentId || !orderId || !signature) {
+                    throw new Error(
+                        "Razorpay did not return complete payment details."
+                    );
+                }
+
                 const r = await fetch("/api/verify-payment", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
                     body: JSON.stringify({
                         bookingId: paymentState.bookingId,
-                        razorpay_order_id: response.razorpay_order_id,
-                        razorpay_payment_id: response.razorpay_payment_id,
-                        razorpay_signature: response.razorpay_signature
+                        razorpay_order_id: orderId,
+                        razorpay_payment_id: paymentId,
+                        razorpay_signature: signature
                     })
                 });
 
                 const data = await r.json().catch(() => ({}));
-                if (!r.ok) throw new Error(data.error || "Payment verification failed.");
 
-                paymentState.paymentId = data.paymentId;
+                if (!r.ok) {
+                    throw new Error(
+                        data.error ||
+                        data.message ||
+                        "Payment verification failed."
+                    );
+                }
+
+                /*
+                 * IMPORTANT:
+                 * Use Razorpay's payment ID first.
+                 * Fall back to server response only if necessary.
+                 */
+                paymentState.paymentId =
+                    paymentId ||
+                    data.paymentId;
+
+                paymentState.orderId =
+                    orderId ||
+                    data.orderId ||
+                    paymentState.orderId;
+
+                paymentState.bookingId =
+                    data.bookingId ||
+                    paymentState.bookingId;
+
+                if (!paymentState.paymentId) {
+                    throw new Error(
+                        "Payment was verified, but the payment ID was not returned."
+                    );
+                }
+
                 $("#payment-success").hidden = false;
-                $("#utr").focus();
-                $("#rz-message").textContent = "Payment verified by Razorpay. Enter the UTR/RRN from the same UPI receipt below.";
-                $("#open-razorpay").textContent = "✅ Razorpay payment verified";
+
+                $("#open-razorpay").textContent =
+                    "✅ Razorpay payment verified";
+
+                $("#open-razorpay").disabled = true;
+
+                $("#rz-message").textContent =
+                    "Payment verified successfully. Enter the UTR/RRN below.";
+
+                $("#err2").textContent = "";
+
             } catch (error) {
-                err.textContent = error.message || "Could not verify the payment.";
+
+                console.error("Payment verification error:", error);
+
+                err.textContent =
+                    error.message ||
+                    "Could not verify the payment.";
+
                 $("#open-razorpay").disabled = false;
-                $("#open-razorpay").textContent = "💳 Pay securely with Razorpay";
+
+                $("#open-razorpay").textContent =
+                    "💳 Pay securely with Razorpay";
             }
         }
 
