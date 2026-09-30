@@ -2079,15 +2079,14 @@
                         Razorpay</button>
                 </div>
                 <div id="payment-success" hidden>
-                    <div class="payment-success-box">✅ Payment received and verified by Razorpay.</div>
-                    <label for="utr">UPI UTR / RRN</label>
-                    <input id="utr" inputmode="numeric" maxlength="20" autocomplete="off"
-                        placeholder="Enter the UTR / RRN from your UPI receipt">
-                    <p class="note">Enter the UTR / RRN from the same UPI payment. Your ticket will be issued only after
-                        the server verifies that it matches the Razorpay transaction.</p>
-                    <div class="err" id="err2" role="alert"></div>
-                    <button class="btn p" id="paid" style="width:100%">✅ Verify UTR &amp; Generate Ticket</button>
+                    <div class="payment-success-box">
+                        ✅ Payment verified successfully.
+                        <br>
+                        🎟️ Your ticket is being generated...
+                    </div>
                 </div>
+
+                <div class="err" id="err2" role="alert"></div>
             </div>
             <div id="ticketview" hidden>
                 <div class="tkt" id="tkt">
@@ -2096,13 +2095,16 @@
                     <div class="tq" id="tq"></div>
                     <div class="bid" id="tid"></div>
                     <div class="rows">
+                        <div><span>Booking ID</span><span id="tid"></span></div>
                         <div><span>Name</span><span id="tn"></span></div>
+                        <div><span>Mobile</span><span id="tm"></span></div>
+                        <div><span>Email</span><span id="te"></span></div>
                         <div><span>Ticket</span><span id="tt"></span></div>
                         <div><span>Admits</span><span id="tp"></span></div>
                         <div><span>Amount paid</span><span id="ta"></span></div>
-                        <div><span>UPI txn ID</span><span id="tu"></span></div>
+                        <div><span>Payment ID</span><span id="tpi"></span></div>
                     </div>
-                    <span class="pend">Valid once confirmed by our team on WhatsApp (within 1 hour)</span>
+                    <span class="pend">✅ Payment verified · Show this QR at the entrance</span>
                 </div>
                 <p class="note" id="tnote" style="text-align:center"></p>
                 <button class="btn p" id="twa" style="width:100%;margin-top:10px" hidden>📲 Send booking to organisers
@@ -2124,10 +2126,6 @@
             name: "Dandiya Raas", heroImage: "", /* optional: URL of a dancers/event photo for the hero background */map: "https://share.google/VRrSsh5wCGAIVvfQU",
             ig: "https://www.instagram.com/dandiya_raas_official", dj: "https://www.instagram.com/djshrijithofficial",
             target: "2026-10-14T17:30:00+05:30",
-            api: "", /* optional backend URL; if set, payment details are POSTed to api + "/api/manual-payments" */
-            upiId: "8197801389@ibl", /* YOUR UPI ID, e.g. dandiyaraas@okhdfcbank */
-            payee: "GURURAJ NARAYANASA K", /* name shown in the UPI app */
-            qrImage: "", /* optional: path/URL of your own UPI QR image, e.g. "upi-qr.png". If empty, a QR is generated from upiId with the exact amount */
             whatsapp: "918197801389", /* optional: WhatsApp number with country code, e.g. 918197801389. Used to send booking details when no backend is set */
             tickets: [
                 { id: "stag", icon: "🎟️", name: "Stag entry", price: 299, per: "Entry for 1 person", people: 1, btn: "Book stag ticket", items: ["Event entry", "Dandiya Raas access", "Music & entertainment"] },
@@ -2213,7 +2211,6 @@
         function resetPaymentState() {
             paymentState = { bookingId: null, orderId: null, paymentId: null, ticketToken: null, ticket: null };
             $("#payment-success").hidden = true;
-            $("#utr").value = "";
             $("#err2").textContent = "";
             $("#open-razorpay").disabled = false;
             $("#open-razorpay").textContent = "💳 Pay securely with Razorpay";
@@ -2321,6 +2318,7 @@
         }
 
         async function verifyRazorpayPayment(response) {
+
             const err = $("#err2");
 
             $("#open-razorpay").disabled = true;
@@ -2328,7 +2326,7 @@
             err.textContent = "";
 
             try {
-                /* Always take the payment ID directly from Razorpay response */
+
                 const paymentId =
                     response?.razorpay_payment_id;
 
@@ -2367,45 +2365,41 @@
                     );
                 }
 
-                /*
-                 * IMPORTANT:
-                 * Use Razorpay's payment ID first.
-                 * Fall back to server response only if necessary.
-                 */
-                paymentState.paymentId =
-                    paymentId ||
-                    data.paymentId;
-
-                paymentState.orderId =
-                    orderId ||
-                    data.orderId ||
-                    paymentState.orderId;
-
-                paymentState.bookingId =
-                    data.bookingId ||
-                    paymentState.bookingId;
-
-                if (!paymentState.paymentId) {
+                if (
+                    !data.ticket ||
+                    !data.ticketToken ||
+                    !data.bookingId
+                ) {
                     throw new Error(
-                        "Payment was verified, but the payment ID was not returned."
+                        "Payment verified, but ticket data was not returned."
                     );
                 }
+
+                paymentState.bookingId = data.bookingId;
+                paymentState.orderId = orderId;
+                paymentState.paymentId = paymentId;
+                paymentState.ticketToken = data.ticketToken;
+                paymentState.ticket = data.ticket;
 
                 $("#payment-success").hidden = false;
 
                 $("#open-razorpay").textContent =
-                    "✅ Razorpay payment verified";
+                    "✅ Payment verified";
 
-                $("#open-razorpay").disabled = true;
-
-                $("#rz-message").textContent =
-                    "Payment verified successfully. Enter the UTR/RRN below.";
-
-                $("#err2").textContent = "";
+                /*
+                 * Generate and display ticket immediately.
+                 */
+                showVerifiedTicket(
+                    data.ticket,
+                    data.ticketToken
+                );
 
             } catch (error) {
 
-                console.error("Payment verification error:", error);
+                console.error(
+                    "Payment verification error:",
+                    error
+                );
 
                 err.textContent =
                     error.message ||
@@ -2433,21 +2427,28 @@
             tk = {
                 id: ticket.ticketId,
                 name: ticket.name,
+                phone: ticket.phone,
+                email: ticket.email,
                 type: ticket.ticket,
                 q: ticket.quantity,
                 ppl: ticket.admits,
                 amount: ticket.amount,
-                utr: ticket.utr,
+                paymentId: ticket.paymentId,
                 ticketToken
             };
 
-            tkMsg = `Dandiya Raas booking\nTicket ID: ${ticket.ticketId}\nName: ${ticket.name}\nMobile: ${ticket.phone}\nEmail: ${ticket.email}\nTicket: ${ticket.ticket} × ${ticket.quantity}\nAdmits: ${ticket.admits}\nAmount paid: ${inr(ticket.amount)}\nUTR/RRN: ${ticket.utr}\nPayment status: VERIFIED`;
+            tkMsg = `Dandiya Raas booking\nBooking ID: ${ticket.ticketId}\nName: ${ticket.name}\nMobile: ${ticket.phone}\nEmail: ${ticket.email}\nTicket: ${ticket.ticket} × ${ticket.quantity}\nAdmits: ${ticket.admits}\nAmount paid: ${inr(ticket.amount)}\nPayment ID: ${ticket.paymentId}\nPayment status: VERIFIED`;
 
             $("#twa").hidden = !C.whatsapp;
+
             const box = $("#tq");
             box.innerHTML = "";
 
-            const validationUrl = window.location.origin + "/api/ticket/" + encodeURIComponent(ticketToken);
+            const validationUrl =
+                window.location.origin +
+                "/api/ticket/verify/" +
+                encodeURIComponent(ticketToken);
+
             if (window.QRCode) {
                 new QRCode(box, {
                     text: validationUrl,
@@ -2461,22 +2462,30 @@
 
             $("#tid").textContent = ticket.ticketId;
             $("#tn").textContent = ticket.name;
+            $("#tm").textContent = ticket.phone;
+            $("#te").textContent = ticket.email;
             $("#tt").textContent = ticket.ticket + " × " + ticket.quantity;
             $("#tp").textContent = ticket.admits + (ticket.admits > 1 ? " people" : " person");
             $("#ta").textContent = inr(ticket.amount);
-            $("#tu").textContent = ticket.utr;
-            $("#tnote").textContent = "✅ Payment verified. Your ticket is valid. Show this QR code at the event entrance.";
+            $("#tpi").textContent = ticket.paymentId;
+            $("#tnote").textContent = "✅ Payment verified. Your ticket is valid. Scan the QR code at the event entrance.";
             $("#mt").textContent = "Your ticket";
+
             W("t");
+
+            /* Automatically create/download the ticket after payment. */
+            setTimeout(downloadTicket, 250);
         }
 
-        $("#tsave").onclick = () => {
+        function downloadTicket() {
             if (!tk) return;
 
             const c = document.createElement("canvas");
-            c.width = 700;
-            c.height = 980;
+            c.width = 760;
+            c.height = 1100;
+
             const g = c.getContext("2d");
+            if (!g) return;
 
             g.fillStyle = "#1e0f2a";
             g.fillRect(0, 0, c.width, c.height);
@@ -2488,96 +2497,74 @@
             g.textAlign = "center";
             g.fillStyle = "#f6d98a";
             g.font = "bold 48px sans-serif";
-            g.fillText("DANDIYA RAAS", 350, 88);
+            g.fillText("DANDIYA RAAS", 380, 82);
 
             g.fillStyle = "#bfae9c";
-            g.font = "24px sans-serif";
-            g.fillText("14 October 2026 · 5:30 PM onwards", 350, 128);
-            g.fillText("Beside PSF Ground, Kallur Layout, Hubli", 350, 162);
-
-            g.fillStyle = "#fff";
-            g.fillRect(185, 192, 330, 330);
-
-            const qc = $("#tq canvas");
-            if (qc) {
-                g.imageSmoothingEnabled = false;
-                g.drawImage(qc, 205, 212, 290, 290);
-            }
+            g.font = "22px sans-serif";
+            g.fillText("14 October 2026 · 5:30 PM onwards", 380, 120);
+            g.fillText("Beside PSF Ground, Kallur Layout, Hubli", 380, 152);
 
             g.fillStyle = "#f6d98a";
-            g.font = "bold 34px monospace";
-            g.fillText(tk.id, 350, 575);
+            g.font = "bold 27px monospace";
+            g.fillText("BOOKING ID: " + tk.id, 380, 195);
+
+            g.fillStyle = "#fff";
+            g.fillRect(200, 225, 360, 360);
+
+            const qrCanvas = $("#tq canvas");
+            const qrImg = $("#tq img");
+
+            if (qrCanvas) {
+                g.imageSmoothingEnabled = false;
+                g.drawImage(qrCanvas, 225, 250, 310, 310);
+            } else if (qrImg) {
+                g.drawImage(qrImg, 225, 250, 310, 310);
+            }
+
+            g.textAlign = "center";
+            g.fillStyle = "#f6d98a";
+            g.font = "bold 20px sans-serif";
+            g.fillText("SCAN AT EVENT ENTRANCE", 380, 620);
 
             const rows = [
                 ["Name", tk.name],
+                ["Mobile", tk.phone],
+                ["Email", tk.email],
                 ["Ticket", tk.type + " × " + tk.q],
                 ["Admits", tk.ppl + (tk.ppl > 1 ? " people" : " person")],
                 ["Amount paid", inr(tk.amount)],
-                ["UTR / RRN", tk.utr]
+                ["Payment ID", tk.paymentId]
             ];
 
-            g.font = "24px sans-serif";
-            rows.forEach((x, i) => {
-                const y = 640 + i * 44;
+            g.font = "22px sans-serif";
+
+            rows.forEach((row, index) => {
+                const y = 675 + index * 48;
                 g.textAlign = "left";
                 g.fillStyle = "#bfae9c";
-                g.fillText(x[0], 54, y);
+                g.fillText(row[0], 58, y);
+
                 g.textAlign = "right";
                 g.fillStyle = "#f7eedd";
-                g.fillText(String(x[1]).slice(0, 28), 646, y);
+                g.fillText(String(row[1]).slice(0, 45), 702, y);
             });
 
             g.textAlign = "center";
             g.fillStyle = "#9dffbd";
-            g.font = "bold 22px sans-serif";
-            g.fillText("PAYMENT VERIFIED · TICKET VALID", 350, 910);
+            g.font = "bold 24px sans-serif";
+            g.fillText("PAYMENT VERIFIED · TICKET VALID", 380, 1045);
 
-            const a = document.createElement("a");
-            a.download = "dandiya-raas-ticket-" + tk.id + ".png";
-            a.href = c.toDataURL("image/png");
-            a.click();
-        };
+            g.fillStyle = "#bfae9c";
+            g.font = "17px sans-serif";
+            g.fillText("Keep this ticket safe and show the QR at entry.", 380, 1075);
 
-        $("#paid").onclick = async () => {
-            const err = $("#err2");
-            const utr = $("#utr").value.trim();
+            const link = document.createElement("a");
+            link.download = "dandiya-raas-ticket-" + tk.id + ".png";
+            link.href = c.toDataURL("image/png");
+            link.click();
+        }
 
-            if (!paymentState.bookingId || !paymentState.paymentId) {
-                return err.textContent = "Please complete and verify the Razorpay payment first.";
-            }
-
-            if (!/^\d{8,20}$/.test(utr)) {
-                return err.textContent = "Enter the UTR/RRN exactly as shown on your UPI receipt (8–20 digits).";
-            }
-
-            $("#paid").disabled = true;
-            $("#paid").textContent = "Verifying UTR...";
-            err.textContent = "";
-
-            try {
-                const r = await fetch("/api/verify-utr", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        bookingId: paymentState.bookingId,
-                        paymentId: paymentState.paymentId,
-                        utr
-                    })
-                });
-
-                const data = await r.json().catch(() => ({}));
-                if (!r.ok) throw new Error(data.error || "UTR verification failed.");
-
-                paymentState.ticketToken = data.ticketToken;
-                paymentState.ticket = data.ticket;
-                showVerifiedTicket(data.ticket, data.ticketToken);
-            } catch (error) {
-                err.textContent = error.message || "Could not verify the UTR.";
-            } finally {
-                $("#paid").disabled = false;
-                $("#paid").textContent = "✅ Verify UTR & Generate Ticket";
-            }
-        };
+        $("#tsave").onclick = downloadTicket;
 
         $("#tclose").onclick = () => {
             M.classList.remove("on");
