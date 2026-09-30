@@ -2341,67 +2341,123 @@
 
                 const err = $("#err2");
 
-                $("#open-razorpay").disabled = true;
-                $("#open-razorpay").textContent = "Verifying payment...";
+                const paymentButton = $("#open-razorpay");
+
+                paymentButton.disabled = true;
+                paymentButton.textContent = "Verifying payment...";
                 err.textContent = "";
 
                 try {
 
-                    const r = await fetch("/api/verify-payment", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
+                    /* =========================================
+                       BASIC RESPONSE VALIDATION
+                    ========================================= */
 
-                        body: JSON.stringify({
-
-                            bookingId: paymentState.bookingId,
-
-                            razorpay_order_id:
-                                response.razorpay_order_id,
-
-                            razorpay_payment_id:
-                                response.razorpay_payment_id,
-
-                            razorpay_signature:
-                                response.razorpay_signature
-
-                        })
-                    });
-
-                    const data = await r.json().catch(() => ({}));
-
-                    if (!r.ok) {
+                    if (
+                        !response ||
+                        !response.razorpay_order_id ||
+                        !response.razorpay_payment_id ||
+                        !response.razorpay_signature
+                    ) {
                         throw new Error(
-                            data.error ||
-                            data.message ||
+                            "Razorpay did not return complete payment details."
+                        );
+                    }
+
+                    if (!paymentState.bookingId) {
+                        throw new Error(
+                            "Booking ID is missing."
+                        );
+                    }
+
+                    /* =========================================
+                       VERIFY PAYMENT WITH SERVER
+                    ========================================= */
+
+                    const verifyResponse = await fetch(
+                        "/api/verify-payment",
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
+
+                            body: JSON.stringify({
+
+                                bookingId:
+                                    paymentState.bookingId,
+
+                                razorpay_order_id:
+                                    response.razorpay_order_id,
+
+                                razorpay_payment_id:
+                                    response.razorpay_payment_id,
+
+                                razorpay_signature:
+                                    response.razorpay_signature
+
+                            })
+                        }
+                    );
+
+                    const verifyData =
+                        await verifyResponse
+                            .json()
+                            .catch(() => ({}));
+
+                    /* =========================================
+                       CHECK SERVER RESPONSE
+                    ========================================= */
+
+                    if (!verifyResponse.ok ||
+                        !verifyData.success) {
+
+                        throw new Error(
+                            verifyData.error ||
+                            verifyData.message ||
                             "Payment verification failed."
                         );
                     }
 
-                    /*
-                     * Payment is successfully verified
-                     */
+                    /* =========================================
+                       PAYMENT VERIFIED
+                    ========================================= */
 
                     paymentState.paymentId =
-                        data.paymentId ||
+                        verifyData.paymentId ||
                         response.razorpay_payment_id;
+
+                    paymentState.bookingId =
+                        verifyData.bookingId ||
+                        paymentState.bookingId;
+
+                    /* =========================================
+                       SHOW SUCCESS MESSAGE
+                    ========================================= */
 
                     $("#payment-success").hidden = false;
 
                     $("#rz-message").textContent =
-                        "✅ Payment verified successfully. Your ticket is ready.";
+                        "✅ Payment verified successfully. Generating your ticket...";
 
-                    $("#open-razorpay").textContent =
+                    paymentButton.textContent =
                         "✅ Payment verified";
 
-                    $("#open-razorpay").disabled = true;
+                    paymentButton.disabled = true;
 
-                    /*
-                     * Automatically generate the ticket
-                     */
+                    /* =========================================
+                       GENERATE TICKET
+                    ========================================= */
 
                     await generateTicketAfterPayment();
+
+                    /* =========================================
+                       FINAL SUCCESS MESSAGE
+                    ========================================= */
+
+                    $("#rz-message").textContent =
+                        "✅ Payment verified successfully. Your ticket is ready.";
 
                 } catch (error) {
 
@@ -2414,9 +2470,9 @@
                         error.message ||
                         "Could not verify the payment.";
 
-                    $("#open-razorpay").disabled = false;
+                    paymentButton.disabled = false;
 
-                    $("#open-razorpay").textContent =
+                    paymentButton.textContent =
                         "💳 Pay securely with Razorpay";
                 }
             }
