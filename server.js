@@ -1122,100 +1122,123 @@ app.post(
    VERIFY TICKET USING QR TOKEN
 ========================================================= */
 
-app.get("/api/ticket/verify/:bookingId", async (req, res) => {
-  try {
-    const bookingId = String(req.params.bookingId || "").trim();
+/* =========================================================
+   VERIFY TICKET USING QR TOKEN
+========================================================= */
 
-    if (!bookingId) {
-      return res.status(400).json({
-        valid: false,
-        error: "Booking ID is required."
-      });
+app.get(
+  "/api/ticket/verify/:token",
+  async (req, res) => {
+
+    if (!requireDatabase(res)) {
+      return;
     }
 
-    const result = await pool.query(
-      `SELECT
-                booking_id,
-                ticket_type,
-                ticket_name,
-                ticket_count,
-                customer_name,
-                customer_phone,
-                customer_email,
-                amount,
-                razorpay_order_id,
-                razorpay_payment_id,
-                payment_status,
-                created_at,
-                paid_at
-             FROM bookings
-             WHERE booking_id = $1`,
-      [bookingId]
-    );
+    try {
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        valid: false,
-        error: "Ticket not found."
-      });
-    }
+      const token =
+        String(req.params.token || "").trim();
 
-    const booking = result.rows[0];
-
-    /*
-     * Payment must be successfully completed.
-     */
-
-    if (booking.payment_status !== "paid") {
-      return res.status(403).json({
-        valid: false,
-        error: "Payment has not been confirmed."
-      });
-    }
-
-    /*
-     * Ticket is valid.
-     */
-
-    return res.status(200).json({
-      valid: true,
-
-      ticket: {
-        bookingId: booking.booking_id,
-
-        name: booking.customer_name,
-
-        phone: booking.customer_phone,
-
-        email: booking.customer_email,
-
-        ticketType: booking.ticket_name,
-
-        quantity: booking.ticket_count,
-
-        amount: Number(booking.amount) / 100,
-
-        paymentStatus: booking.payment_status,
-
-        paymentId: booking.razorpay_payment_id,
-
-        paidAt: booking.paid_at
+      if (!token) {
+        return res.status(400).json({
+          valid: false,
+          error: "Ticket token is required."
+        });
       }
-    });
 
-  } catch (error) {
+      const result = await pool.query(
+        `SELECT
+            booking_id,
+            ticket_type,
+            ticket_name,
+            ticket_count,
+            customer_name,
+            customer_phone,
+            customer_email,
+            amount,
+            razorpay_order_id,
+            razorpay_payment_id,
+            payment_status,
+            created_at,
+            paid_at,
+            checked_in,
+            checked_in_at
+         FROM bookings
+         WHERE ticket_token = $1`,
+        [token]
+      );
 
-    console.error(
-      "Ticket verification error:",
-      error
-    );
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          valid: false,
+          error: "Invalid ticket token."
+        });
+      }
 
-    return res.status(500).json({
-      valid: false,
-      error: "Unable to verify ticket."
-    });
+      const booking = result.rows[0];
+
+      if (booking.payment_status !== "paid") {
+        return res.status(403).json({
+          valid: false,
+          error: "Payment has not been confirmed."
+        });
+      }
+
+      const ticket = TICKETS[booking.ticket_type];
+
+      return res.status(200).json({
+        valid: true,
+
+        ticket: {
+          bookingId: booking.booking_id,
+
+          name: booking.customer_name,
+
+          phone: booking.customer_phone,
+
+          email: booking.customer_email,
+
+          ticketType: booking.ticket_name,
+
+          quantity: Number(booking.ticket_count),
+
+          admits: ticket
+            ? ticket.people * Number(booking.ticket_count)
+            : Number(booking.ticket_count),
+
+          amount: Number(booking.amount) / 100,
+
+          paymentStatus:
+            booking.payment_status,
+
+          paymentId:
+            booking.razorpay_payment_id,
+
+          paidAt:
+            booking.paid_at,
+
+          checkedIn:
+            Boolean(booking.checked_in),
+
+          checkedInAt:
+            booking.checked_in_at || null
+        }
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Ticket QR verification error:",
+        error
+      );
+
+      return res.status(500).json({
+        valid: false,
+        error: "Unable to verify ticket."
+      });
+    }
   }
-});
+);
 /* =========================================================
    CHECK-IN TICKET
 ========================================================= */
@@ -1485,66 +1508,6 @@ app.get(
   }
 );
 
-
-/* =========================================================
-   GET TICKET
-========================================================= */
-
-app.get("/api/ticket/:bookingId", async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT
-          booking_id,
-          ticket_type,
-          ticket_name,
-          ticket_count,
-          customer_name,
-          customer_phone,
-          customer_email,
-          amount,
-          razorpay_order_id,
-          razorpay_payment_id,
-          utr,
-          payment_status,
-          created_at,
-          paid_at,
-          checked_in,
-          checked_in_at
-       FROM bookings
-       WHERE booking_id = $1`,
-      [req.params.bookingId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Ticket not found",
-      });
-    }
-
-    const booking = result.rows[0];
-
-    if (booking.payment_status !== "paid") {
-      return res.status(403).json({
-        success: false,
-        message: "Payment is not confirmed",
-      });
-    }
-
-    return res.json({
-      success: true,
-      ticket: booking,
-    });
-
-  } catch (error) {
-    console.error("Ticket fetch error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to fetch ticket",
-    });
-  }
-});
 
 
 /* =========================================================
