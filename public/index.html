@@ -2077,511 +2077,599 @@
                         option shown by Razorpay when available.</p>
                     <button class="btn p" id="open-razorpay" type="button" style="width:100%">💳 Pay securely with
                         Razorpay</button>
-                </div>
-                <div id="payment-success" hidden>
-                    <div class="payment-success-box">
-                        ✅ Payment verified successfully.
-                        <br>
-                        🎟️ Your ticket is being generated...
-                    </div>
-                </div>
+                    <div id="payment-success" hidden>
 
-                <div class="err" id="err2" role="alert"></div>
-            </div>
-            <div id="ticketview" hidden>
-                <div class="tkt" id="tkt">
-                    <h4>🎟️ Dandiya Raas</h4>
-                    <div class="sub">14 October 2026 · 5:30 PM onwards<br>Beside PSF Ground, Kallur Layout, Hubli</div>
-                    <div class="tq" id="tq"></div>
-                    <div class="bid" id="tid"></div>
-                    <div class="rows">
-                        <div><span>Booking ID</span><span id="tid"></span></div>
-                        <div><span>Name</span><span id="tn"></span></div>
-                        <div><span>Mobile</span><span id="tm"></span></div>
-                        <div><span>Email</span><span id="te"></span></div>
-                        <div><span>Ticket</span><span id="tt"></span></div>
-                        <div><span>Admits</span><span id="tp"></span></div>
-                        <div><span>Amount paid</span><span id="ta"></span></div>
-                        <div><span>Payment ID</span><span id="tpi"></span></div>
+                        <div class="payment-success-box">
+                            ✅ Payment received and verified by Razorpay.
+                        </div>
+
+                        <div class="success-message">
+                            <h3>🎟️ Your ticket is ready!</h3>
+
+                            <p>
+                                Your payment has been successfully verified.
+                                Your Dandiya Raas ticket is now available.
+                            </p>
+
+                            <p>
+                                Click below to view and download your ticket.
+                            </p>
+                        </div>
+
+                        <div class="err" id="err2" role="alert"></div>
+
+                        <button class="btn p" id="generate-ticket" style="width:100%" type="button">
+                            🎟️ Generate My Ticket
+                        </button>
+
                     </div>
-                    <span class="pend">✅ Payment verified · Show this QR at the entrance</span>
+
+                    <div class="err" id="err2" role="alert"></div>
                 </div>
-                <p class="note" id="tnote" style="text-align:center"></p>
-                <button class="btn p" id="twa" style="width:100%;margin-top:10px" hidden>📲 Send booking to organisers
-                    on WhatsApp</button>
-                <button class="btn g" id="tsave" style="width:100%;margin-top:10px">⬇️ Save ticket as image</button>
-                <button class="btn g" id="tclose" style="width:100%;margin-top:8px">Close</button>
-            </div>
-            <div id="doneview" class="ok" hidden><span class="ico">🎉</span>
-                <h3 id="dt"></h3>
-                <p id="dm" style="color:var(--mute)"></p><button class="btn g" id="dclose"
-                    style="margin-top:12px">Close</button>
+                <div id="ticketview" hidden>
+                    <div class="tkt" id="tkt">
+                        <h4>🎟️ Dandiya Raas</h4>
+                        <div class="sub">14 October 2026 · 5:30 PM onwards<br>Beside PSF Ground, Kallur Layout, Hubli
+                        </div>
+                        <div class="tq" id="tq"></div>
+                        <div class="bid" id="tid"></div>
+                        <div class="rows">
+                            <div><span>Booking ID</span><span id="tid"></span></div>
+                            <div><span>Name</span><span id="tn"></span></div>
+                            <div><span>Mobile</span><span id="tm"></span></div>
+                            <div><span>Email</span><span id="te"></span></div>
+                            <div><span>Ticket</span><span id="tt"></span></div>
+                            <div><span>Admits</span><span id="tp"></span></div>
+                            <div><span>Amount paid</span><span id="ta"></span></div>
+                            <div><span>Payment ID</span><span id="tpi"></span></div>
+                        </div>
+                        <span class="pend">✅ Payment verified · Show this QR at the entrance</span>
+                    </div>
+                    <p class="note" id="tnote" style="text-align:center"></p>
+                    <button class="btn p" id="twa" style="width:100%;margin-top:10px" hidden>📲 Send booking to
+                        organisers
+                        on WhatsApp</button>
+                    <button class="btn g" id="tsave" style="width:100%;margin-top:10px">⬇️ Save ticket as image</button>
+                    <button class="btn g" id="tclose" style="width:100%;margin-top:8px">Close</button>
+                </div>
+                <div id="doneview" class="ok" hidden><span class="ico">🎉</span>
+                    <h3 id="dt"></h3>
+                    <p id="dm" style="color:var(--mute)"></p><button class="btn g" id="dclose"
+                        style="margin-top:12px">Close</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <script>
-        /* Central config: edit event details here */
-        const C = {
-            name: "Dandiya Raas", heroImage: "", /* optional: URL of a dancers/event photo for the hero background */map: "https://share.google/VRrSsh5wCGAIVvfQU",
-            ig: "https://www.instagram.com/dandiya_raas_official", dj: "https://www.instagram.com/djshrijithofficial",
-            target: "2026-10-14T17:30:00+05:30",
-            whatsapp: "918197801389", /* optional: WhatsApp number with country code, e.g. 918197801389. Used to send booking details when no backend is set */
-            tickets: [
-                { id: "stag", icon: "🎟️", name: "Stag entry", price: 299, per: "Entry for 1 person", people: 1, btn: "Book stag ticket", items: ["Event entry", "Dandiya Raas access", "Music & entertainment"] },
-                { id: "couple", icon: "💑", name: "Couple entry", price: 499, per: "Entry for 2 people", people: 2, btn: "Book couple ticket", items: ["Couple entry", "Dandiya Raas access", "Music & entertainment"] },
-                { id: "group", icon: "👥", name: "Group of five", price: 1099, per: "Entry for 5 people", people: 5, btn: "Book group ticket", best: 1, items: ["Entry for 5 people", "Dandiya Raas access", "Music & entertainment"] }],
-            contacts: [["Jayesh", "8197801389"], ["Darshan", "7975764607"], ["Akash", "8050965554"]],
-            faq: [["What ticket types are available?", "Stag, Couple and Group of Five."], ["What is the Stag ticket price?", "₹299."], ["What is the Couple ticket price?", "₹499."], ["What is the Group of Five price?", "₹1,099."], ["When is the event?", "14 October 2026 at 5:30 PM onwards."], ["Where is the event?", "Beside PSF Ground, Kallur Layout, Hubli."], ["Can I buy tickets online?", "Yes, tickets can be purchased through the website using online payment."], ["Will I receive a digital ticket?", "Yes. After successful payment verification."], ["Can I use the QR code at the entrance?", "Yes. The QR code can be scanned for ticket validation."], ["Who do I contact for help?", "Call Jayesh, Darshan or Akash. Numbers are in the contact section."]]
-        };
-        const $ = s => document.querySelector(s), inr = n => "₹" + n.toLocaleString("en-IN");
-        document.querySelectorAll("[data-map]").forEach(a => a.href = C.map);
-        document.querySelectorAll("[data-ig]").forEach(a => a.href = C.ig);
-        document.querySelectorAll("[data-dj]").forEach(a => a.href = C.dj);
-        $("#tk").innerHTML = C.tickets.map(t => `<div class="card tk${t.best ? " best" : ""}">${t.best ? '<span class="ribbon">⭐ Best value</span>' : ""}<span class="ico">${t.icon}</span><h3>${t.name}</h3><div class="pr">${inr(t.price)}</div><p>${t.per}</p><ul>${t.items.map(i => `<li>${i}</li>`).join("")}</ul><button class="btn p" data-t="${t.id}">${t.btn}</button></div>`).join("");
-        $("#ct").innerHTML = C.contacts.map(([n, p]) => `<div class="card"><h3>${n}</h3><p>📞 <a href="tel:+91${p}">${p}</a></p><p style="margin-top:12px"><a class="btn g" href="tel:+91${p}">Call ${n}</a></p></div>`).join("");
-        $("#fc").innerHTML = C.contacts.map(([n, p]) => `<p>${n} – <a href="tel:+91${p}">${p}</a></p>`).join("");
-        $("#fq").innerHTML = C.faq.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join("");
-        $("#ty").innerHTML = C.tickets.map(t => `<option value="${t.id}">${t.name} (${inr(t.price)})</option>`).join("");
-
-        /* hero: light curtain + embers + optional photo */
-        (() => {
-            const cols = ["#f6d98a", "#f0742a", "#ff5a6a", "#b26bff", "#f6d98a"], L = $("#lights"), E = $("#embers");
-            let h = ""; for (let i = 0; i < 22; i++)h += `<i style="--h:${26 + ((i * 37) % 60)}px;--c:${cols[i % 5]};--d:${(i * .37 % 2.8).toFixed(2)}s"></i>`; L.innerHTML = h;
-            let b = ""; for (let i = 0; i < 26; i++)b += `<b style="--x:${(i * 41) % 100}%;--s:${3 + (i % 4) * 2}px;--t:${7 + (i * 3) % 7}s;--d:-${(i * 1.7 % 9).toFixed(1)}s;--dx:${((i % 5) - 2) * 38}px"></b>`; E.innerHTML = b;
-            if (C.heroImage) $(".hero").style.setProperty("--hero-photo", `url("${C.heroImage}")`)
-        })();
-
-        /* countdown */
-        const T = new Date(C.target).getTime(), p2 = n => String(n).padStart(2, "0");
-        function tick() {
-            const l = T - Date.now(); if (l <= 0) { $("#cd").style.display = "none"; $("#done").style.display = "block"; return }
-            $("#d").textContent = Math.floor(l / 864e5); $("#h").textContent = p2(Math.floor(l / 36e5) % 24); $("#m").textContent = p2(Math.floor(l / 6e4) % 60); $("#s").textContent = p2(Math.floor(l / 1e3) % 60); setTimeout(tick, 1000)
-        }
-        tick();
-
-        /* nav */
-        $("#burger").onclick = () => { const o = $("#links").classList.toggle("on"); $("#burger").setAttribute("aria-expanded", o) };
-        $("#links").onclick = e => { if (e.target.tagName === "A") $("#links").classList.remove("on") };
-
-        /* booking + Razorpay payment */
-        const M = $("#modal");
-        let order = null;
-        let paymentState = { bookingId: null, orderId: null, paymentId: null, ticketToken: null, ticket: null };
-
-        function sum() {
-            const t = C.tickets.find(x => x.id === $("#ty").value);
-            const q = Math.max(1, Math.min(10, parseInt($("#qt").value) || 1));
-            $("#s1").textContent = t.name;
-            $("#s2").textContent = q;
-            $("#s3").textContent = inr(t.price);
-            $("#s4").textContent = inr(t.price * q);
-            return { t, q };
-        }
-
-        document.addEventListener("click", e => {
-            const b = e.target.closest("[data-t]");
-            if (!b) return;
-            $("#ty").value = b.dataset.t;
-            $("#qt").value = 1;
-            $("#err").textContent = "";
-            $("#err2").textContent = "";
-            $("#payment-success").hidden = true;
-            $("#open-razorpay").disabled = false;
-            $("#open-razorpay").textContent = "💳 Pay securely with Razorpay";
-            sum();
-            W("f");
-            $("#mt").textContent = "Book your tickets";
-            M.classList.add("on");
-            $("#nm").focus();
-        });
-
-        $("#close").onclick = () => M.classList.remove("on");
-        M.onclick = e => { if (e.target === M) M.classList.remove("on") };
-        document.addEventListener("keydown", e => { if (e.key === "Escape") M.classList.remove("on") });
-        $("#ty").onchange = $("#qt").oninput = sum;
-
-        const W = x => {
-            $("#ticketview").hidden = x !== "t";
-            $("#formview").hidden = x !== "f";
-            $("#payview").hidden = x !== "p";
-            $("#doneview").hidden = x !== "d";
-        };
-
-        function resetPaymentState() {
-            paymentState = { bookingId: null, orderId: null, paymentId: null, ticketToken: null, ticket: null };
-            $("#payment-success").hidden = true;
-            $("#err2").textContent = "";
-            $("#open-razorpay").disabled = false;
-            $("#open-razorpay").textContent = "💳 Pay securely with Razorpay";
-        }
-
-        async function createRazorpayOrder() {
-            const { t, q } = sum();
-            const err = $("#err");
-            const d = {
-                name: $("#nm").value.trim(),
-                phone: $("#ph").value.trim(),
-                email: $("#em").value.trim(),
-                type: t.id,
-                qty: q
+        <script>
+            /* Central config: edit event details here */
+            const C = {
+                name: "Dandiya Raas", heroImage: "", /* optional: URL of a dancers/event photo for the hero background */map: "https://share.google/VRrSsh5wCGAIVvfQU",
+                ig: "https://www.instagram.com/dandiya_raas_official", dj: "https://www.instagram.com/djshrijithofficial",
+                target: "2026-10-14T17:30:00+05:30",
+                whatsapp: "918197801389", /* optional: WhatsApp number with country code, e.g. 918197801389. Used to send booking details when no backend is set */
+                tickets: [
+                    { id: "stag", icon: "🎟️", name: "Stag entry", price: 299, per: "Entry for 1 person", people: 1, btn: "Book stag ticket", items: ["Event entry", "Dandiya Raas access", "Music & entertainment"] },
+                    { id: "couple", icon: "💑", name: "Couple entry", price: 499, per: "Entry for 2 people", people: 2, btn: "Book couple ticket", items: ["Couple entry", "Dandiya Raas access", "Music & entertainment"] },
+                    { id: "group", icon: "👥", name: "Group of five", price: 1099, per: "Entry for 5 people", people: 5, btn: "Book group ticket", best: 1, items: ["Entry for 5 people", "Dandiya Raas access", "Music & entertainment"] }],
+                contacts: [["Jayesh", "8197801389"], ["Darshan", "7975764607"], ["Akash", "8050965554"]],
+                faq: [["What ticket types are available?", "Stag, Couple and Group of Five."], ["What is the Stag ticket price?", "₹299."], ["What is the Couple ticket price?", "₹499."], ["What is the Group of Five price?", "₹1,099."], ["When is the event?", "14 October 2026 at 5:30 PM onwards."], ["Where is the event?", "Beside PSF Ground, Kallur Layout, Hubli."], ["Can I buy tickets online?", "Yes, tickets can be purchased through the website using online payment."], ["Will I receive a digital ticket?", "Yes. After successful payment verification."], ["Can I use the QR code at the entrance?", "Yes. The QR code can be scanned for ticket validation."], ["Who do I contact for help?", "Call Jayesh, Darshan or Akash. Numbers are in the contact section."]]
             };
+            const $ = s => document.querySelector(s), inr = n => "₹" + n.toLocaleString("en-IN");
+            document.querySelectorAll("[data-map]").forEach(a => a.href = C.map);
+            document.querySelectorAll("[data-ig]").forEach(a => a.href = C.ig);
+            document.querySelectorAll("[data-dj]").forEach(a => a.href = C.dj);
+            $("#tk").innerHTML = C.tickets.map(t => `<div class="card tk${t.best ? " best" : ""}">${t.best ? '<span class="ribbon">⭐ Best value</span>' : ""}<span class="ico">${t.icon}</span><h3>${t.name}</h3><div class="pr">${inr(t.price)}</div><p>${t.per}</p><ul>${t.items.map(i => `<li>${i}</li>`).join("")}</ul><button class="btn p" data-t="${t.id}">${t.btn}</button></div>`).join("");
+            $("#ct").innerHTML = C.contacts.map(([n, p]) => `<div class="card"><h3>${n}</h3><p>📞 <a href="tel:+91${p}">${p}</a></p><p style="margin-top:12px"><a class="btn g" href="tel:+91${p}">Call ${n}</a></p></div>`).join("");
+            $("#fc").innerHTML = C.contacts.map(([n, p]) => `<p>${n} – <a href="tel:+91${p}">${p}</a></p>`).join("");
+            $("#fq").innerHTML = C.faq.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join("");
+            $("#ty").innerHTML = C.tickets.map(t => `<option value="${t.id}">${t.name} (${inr(t.price)})</option>`).join("");
 
-            if (d.name.length < 2) return err.textContent = "Enter your full name.";
-            if (!/^[6-9]\d{9}$/.test(d.phone)) return err.textContent = "Enter a valid 10-digit mobile number.";
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) return err.textContent = "Enter a valid email address.";
+            /* hero: light curtain + embers + optional photo */
+            (() => {
+                const cols = ["#f6d98a", "#f0742a", "#ff5a6a", "#b26bff", "#f6d98a"], L = $("#lights"), E = $("#embers");
+                let h = ""; for (let i = 0; i < 22; i++)h += `<i style="--h:${26 + ((i * 37) % 60)}px;--c:${cols[i % 5]};--d:${(i * .37 % 2.8).toFixed(2)}s"></i>`; L.innerHTML = h;
+                let b = ""; for (let i = 0; i < 26; i++)b += `<b style="--x:${(i * 41) % 100}%;--s:${3 + (i % 4) * 2}px;--t:${7 + (i * 3) % 7}s;--d:-${(i * 1.7 % 9).toFixed(1)}s;--dx:${((i % 5) - 2) * 38}px"></b>`; E.innerHTML = b;
+                if (C.heroImage) $(".hero").style.setProperty("--hero-photo", `url("${C.heroImage}")`)
+            })();
 
-            if (typeof Razorpay !== "function") {
-                return err.textContent = "Razorpay Checkout could not be loaded. Please refresh the page and try again.";
+            /* countdown */
+            const T = new Date(C.target).getTime(), p2 = n => String(n).padStart(2, "0");
+            function tick() {
+                const l = T - Date.now(); if (l <= 0) { $("#cd").style.display = "none"; $("#done").style.display = "block"; return }
+                $("#d").textContent = Math.floor(l / 864e5); $("#h").textContent = p2(Math.floor(l / 36e5) % 24); $("#m").textContent = p2(Math.floor(l / 6e4) % 60); $("#s").textContent = p2(Math.floor(l / 1e3) % 60); setTimeout(tick, 1000)
+            }
+            tick();
+
+            /* nav */
+            $("#burger").onclick = () => { const o = $("#links").classList.toggle("on"); $("#burger").setAttribute("aria-expanded", o) };
+            $("#links").onclick = e => { if (e.target.tagName === "A") $("#links").classList.remove("on") };
+
+            /* booking + Razorpay payment */
+            const M = $("#modal");
+            let order = null;
+            let paymentState = { bookingId: null, orderId: null, paymentId: null, ticketToken: null, ticket: null };
+
+            function sum() {
+                const t = C.tickets.find(x => x.id === $("#ty").value);
+                const q = Math.max(1, Math.min(10, parseInt($("#qt").value) || 1));
+                $("#s1").textContent = t.name;
+                $("#s2").textContent = q;
+                $("#s3").textContent = inr(t.price);
+                $("#s4").textContent = inr(t.price * q);
+                return { t, q };
             }
 
-            err.textContent = "";
-            resetPaymentState();
-            order = { ...d, t, q, total: t.price * q };
-
-            $("#pay").disabled = true;
-            $("#pay").textContent = "Creating secure order...";
-
-            try {
-                const r = await fetch("/api/orders", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(d)
-                });
-
-                const data = await r.json().catch(() => ({}));
-                if (!r.ok) throw new Error(data.error || "Could not create payment order.");
-
-                paymentState.bookingId = data.bookingId;
-                paymentState.orderId = data.orderId;
-
-                $("#p1").textContent = t.name + " × " + q;
-                $("#p2").textContent = inr(t.price) + " each";
-                $("#p3").textContent = inr(data.amount);
+            document.addEventListener("click", e => {
+                const b = e.target.closest("[data-t]");
+                if (!b) return;
+                $("#ty").value = b.dataset.t;
+                $("#qt").value = 1;
+                $("#err").textContent = "";
                 $("#err2").textContent = "";
-                $("#mt").textContent = "Secure payment";
-                W("p");
-
-                openRazorpay(data);
-            } catch (error) {
-                err.textContent = error.message || "Could not start Razorpay payment.";
-            } finally {
-                $("#pay").disabled = false;
-                $("#pay").textContent = "Proceed to payment";
-            }
-        }
-
-        function openRazorpay(data) {
-            const customer = {
-                name: order.name,
-                email: order.email,
-                contact: order.phone
-            };
-
-            const options = {
-                key: data.keyId,
-                amount: Number(data.amount) * 100,
-                currency: "INR",
-                name: "Dandiya Raas",
-                description: `${order.t.name} × ${order.q}`,
-                order_id: data.orderId,
-                prefill: customer,
-                notes: {
-                    ticket_type: order.t.id,
-                    quantity: String(order.q),
-                    booking_id: data.bookingId
-                },
-                theme: {
-                    color: "#e8b84a"
-                },
-                modal: {
-                    ondismiss: function () {
-                        $("#rz-message").textContent = "Payment window closed. You can reopen Razorpay and try again.";
-                        $("#open-razorpay").disabled = false;
-                        $("#open-razorpay").textContent = "💳 Pay securely with Razorpay";
-                    }
-                },
-                handler: async function (response) {
-                    await verifyRazorpayPayment(response);
-                }
-            };
-
-            const rzp = new Razorpay(options);
-
-            rzp.on("payment.failed", function (response) {
-                $("#err2").textContent = response?.error?.description || "Payment failed. Please try again.";
+                $("#payment-success").hidden = true;
                 $("#open-razorpay").disabled = false;
                 $("#open-razorpay").textContent = "💳 Pay securely with Razorpay";
+                sum();
+                W("f");
+                $("#mt").textContent = "Book your tickets";
+                M.classList.add("on");
+                $("#nm").focus();
             });
 
-            rzp.open();
-        }
+            $("#close").onclick = () => M.classList.remove("on");
+            M.onclick = e => { if (e.target === M) M.classList.remove("on") };
+            document.addEventListener("keydown", e => { if (e.key === "Escape") M.classList.remove("on") });
+            $("#ty").onchange = $("#qt").oninput = sum;
 
-        async function verifyRazorpayPayment(response) {
-
-            const err = $("#err2");
-
-            $("#open-razorpay").disabled = true;
-            $("#open-razorpay").textContent = "Verifying payment...";
-            err.textContent = "";
-
-            try {
-
-                const paymentId =
-                    response?.razorpay_payment_id;
-
-                const orderId =
-                    response?.razorpay_order_id;
-
-                const signature =
-                    response?.razorpay_signature;
-
-                if (!paymentId || !orderId || !signature) {
-                    throw new Error(
-                        "Razorpay did not return complete payment details."
-                    );
-                }
-
-                const r = await fetch("/api/verify-payment", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        bookingId: paymentState.bookingId,
-                        razorpay_order_id: orderId,
-                        razorpay_payment_id: paymentId,
-                        razorpay_signature: signature
-                    })
-                });
-
-                const data = await r.json().catch(() => ({}));
-
-                if (!r.ok) {
-                    throw new Error(
-                        data.error ||
-                        data.message ||
-                        "Payment verification failed."
-                    );
-                }
-
-                if (
-                    !data.ticket ||
-                    !data.ticketToken ||
-                    !data.bookingId
-                ) {
-                    throw new Error(
-                        "Payment verified, but ticket data was not returned."
-                    );
-                }
-
-                paymentState.bookingId = data.bookingId;
-                paymentState.orderId = orderId;
-                paymentState.paymentId = paymentId;
-                paymentState.ticketToken = data.ticketToken;
-                paymentState.ticket = data.ticket;
-
-                $("#payment-success").hidden = false;
-
-                $("#open-razorpay").textContent =
-                    "✅ Payment verified";
-
-                /*
-                 * Generate and display ticket immediately.
-                 */
-                showVerifiedTicket(
-                    data.ticket,
-                    data.ticketToken
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Payment verification error:",
-                    error
-                );
-
-                err.textContent =
-                    error.message ||
-                    "Could not verify the payment.";
-
-                $("#open-razorpay").disabled = false;
-
-                $("#open-razorpay").textContent =
-                    "💳 Pay securely with Razorpay";
-            }
-        }
-
-        $("#pay").onclick = createRazorpayOrder;
-
-        $("#back").onclick = () => {
-            $("#mt").textContent = "Book your tickets";
-            W("f");
-        };
-
-        let tk = null, tkMsg = "";
-        const waUrl = () => "https://wa.me/" + C.whatsapp + "?text=" + encodeURIComponent(tkMsg);
-        $("#twa").onclick = () => window.open(waUrl(), "_blank", "noopener");
-
-        function showVerifiedTicket(ticket, ticketToken) {
-            tk = {
-                id: ticket.ticketId,
-                name: ticket.name,
-                phone: ticket.phone,
-                email: ticket.email,
-                type: ticket.ticket,
-                q: ticket.quantity,
-                ppl: ticket.admits,
-                amount: ticket.amount,
-                paymentId: ticket.paymentId,
-                ticketToken
+            const W = x => {
+                $("#ticketview").hidden = x !== "t";
+                $("#formview").hidden = x !== "f";
+                $("#payview").hidden = x !== "p";
+                $("#doneview").hidden = x !== "d";
             };
 
-            tkMsg = `Dandiya Raas booking\nBooking ID: ${ticket.ticketId}\nName: ${ticket.name}\nMobile: ${ticket.phone}\nEmail: ${ticket.email}\nTicket: ${ticket.ticket} × ${ticket.quantity}\nAdmits: ${ticket.admits}\nAmount paid: ${inr(ticket.amount)}\nPayment ID: ${ticket.paymentId}\nPayment status: VERIFIED`;
+            function resetPaymentState() {
+                paymentState = { bookingId: null, orderId: null, paymentId: null, ticketToken: null, ticket: null };
+                $("#payment-success").hidden = true;
+                $("#err2").textContent = "";
+                $("#open-razorpay").disabled = false;
+                $("#open-razorpay").textContent = "💳 Pay securely with Razorpay";
+            }
 
-            $("#twa").hidden = !C.whatsapp;
+            async function createRazorpayOrder() {
+                const { t, q } = sum();
+                const err = $("#err");
+                const d = {
+                    name: $("#nm").value.trim(),
+                    phone: $("#ph").value.trim(),
+                    email: $("#em").value.trim(),
+                    type: t.id,
+                    qty: q
+                };
 
-            const box = $("#tq");
-            box.innerHTML = "";
+                if (d.name.length < 2) return err.textContent = "Enter your full name.";
+                if (!/^[6-9]\d{9}$/.test(d.phone)) return err.textContent = "Enter a valid 10-digit mobile number.";
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) return err.textContent = "Enter a valid email address.";
 
-            const validationUrl =
-                window.location.origin +
-                "/api/ticket/verify/" +
-                encodeURIComponent(ticketToken);
+                if (typeof Razorpay !== "function") {
+                    return err.textContent = "Razorpay Checkout could not be loaded. Please refresh the page and try again.";
+                }
 
-            if (window.QRCode) {
-                new QRCode(box, {
-                    text: validationUrl,
-                    width: 190,
-                    height: 190,
-                    correctLevel: QRCode.CorrectLevel.M
+                err.textContent = "";
+                resetPaymentState();
+                order = { ...d, t, q, total: t.price * q };
+
+                $("#pay").disabled = true;
+                $("#pay").textContent = "Creating secure order...";
+
+                try {
+                    const r = await fetch("/api/orders", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(d)
+                    });
+
+                    const data = await r.json().catch(() => ({}));
+                    if (!r.ok) throw new Error(data.error || "Could not create payment order.");
+
+                    paymentState.bookingId = data.bookingId;
+                    paymentState.orderId = data.orderId;
+
+                    $("#p1").textContent = t.name + " × " + q;
+                    $("#p2").textContent = inr(t.price) + " each";
+                    $("#p3").textContent = inr(data.amount);
+                    $("#err2").textContent = "";
+                    $("#mt").textContent = "Secure payment";
+                    W("p");
+
+                    openRazorpay(data);
+                } catch (error) {
+                    err.textContent = error.message || "Could not start Razorpay payment.";
+                } finally {
+                    $("#pay").disabled = false;
+                    $("#pay").textContent = "Proceed to payment";
+                }
+            }
+
+            function openRazorpay(data) {
+                const customer = {
+                    name: order.name,
+                    email: order.email,
+                    contact: order.phone
+                };
+
+                const options = {
+                    key: data.keyId,
+                    amount: Number(data.amount) * 100,
+                    currency: "INR",
+                    name: "Dandiya Raas",
+                    description: `${order.t.name} × ${order.q}`,
+                    order_id: data.orderId,
+                    prefill: customer,
+                    notes: {
+                        ticket_type: order.t.id,
+                        quantity: String(order.q),
+                        booking_id: data.bookingId
+                    },
+                    theme: {
+                        color: "#e8b84a"
+                    },
+                    modal: {
+                        ondismiss: function () {
+                            $("#rz-message").textContent = "Payment window closed. You can reopen Razorpay and try again.";
+                            $("#open-razorpay").disabled = false;
+                            $("#open-razorpay").textContent = "💳 Pay securely with Razorpay";
+                        }
+                    },
+                    handler: async function (response) {
+                        await verifyRazorpayPayment(response);
+                    }
+                };
+
+                const rzp = new Razorpay(options);
+
+                rzp.on("payment.failed", function (response) {
+                    $("#err2").textContent = response?.error?.description || "Payment failed. Please try again.";
+                    $("#open-razorpay").disabled = false;
+                    $("#open-razorpay").textContent = "💳 Pay securely with Razorpay";
                 });
-            } else {
-                box.textContent = "QR unavailable";
+
+                rzp.open();
             }
 
-            $("#tid").textContent = ticket.ticketId;
-            $("#tn").textContent = ticket.name;
-            $("#tm").textContent = ticket.phone;
-            $("#te").textContent = ticket.email;
-            $("#tt").textContent = ticket.ticket + " × " + ticket.quantity;
-            $("#tp").textContent = ticket.admits + (ticket.admits > 1 ? " people" : " person");
-            $("#ta").textContent = inr(ticket.amount);
-            $("#tpi").textContent = ticket.paymentId;
-            $("#tnote").textContent = "✅ Payment verified. Your ticket is valid. Scan the QR code at the event entrance.";
-            $("#mt").textContent = "Your ticket";
+            async function verifyRazorpayPayment(response) {
 
-            W("t");
+                const err = $("#err2");
 
-            /* Automatically create/download the ticket after payment. */
-            setTimeout(downloadTicket, 250);
-        }
+                $("#open-razorpay").disabled = true;
+                $("#open-razorpay").textContent = "Verifying payment...";
+                err.textContent = "";
 
-        function downloadTicket() {
-            if (!tk) return;
+                try {
 
-            const c = document.createElement("canvas");
-            c.width = 760;
-            c.height = 1100;
+                    const r = await fetch("/api/verify-payment", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
 
-            const g = c.getContext("2d");
-            if (!g) return;
+                        body: JSON.stringify({
 
-            g.fillStyle = "#1e0f2a";
-            g.fillRect(0, 0, c.width, c.height);
+                            bookingId: paymentState.bookingId,
 
-            g.strokeStyle = "#e8b84a";
-            g.lineWidth = 5;
-            g.strokeRect(16, 16, c.width - 32, c.height - 32);
+                            razorpay_order_id:
+                                response.razorpay_order_id,
 
-            g.textAlign = "center";
-            g.fillStyle = "#f6d98a";
-            g.font = "bold 48px sans-serif";
-            g.fillText("DANDIYA RAAS", 380, 82);
+                            razorpay_payment_id:
+                                response.razorpay_payment_id,
 
-            g.fillStyle = "#bfae9c";
-            g.font = "22px sans-serif";
-            g.fillText("14 October 2026 · 5:30 PM onwards", 380, 120);
-            g.fillText("Beside PSF Ground, Kallur Layout, Hubli", 380, 152);
+                            razorpay_signature:
+                                response.razorpay_signature
 
-            g.fillStyle = "#f6d98a";
-            g.font = "bold 27px monospace";
-            g.fillText("BOOKING ID: " + tk.id, 380, 195);
+                        })
+                    });
 
-            g.fillStyle = "#fff";
-            g.fillRect(200, 225, 360, 360);
+                    const data = await r.json().catch(() => ({}));
 
-            const qrCanvas = $("#tq canvas");
-            const qrImg = $("#tq img");
+                    if (!r.ok) {
+                        throw new Error(
+                            data.error ||
+                            data.message ||
+                            "Payment verification failed."
+                        );
+                    }
 
-            if (qrCanvas) {
-                g.imageSmoothingEnabled = false;
-                g.drawImage(qrCanvas, 225, 250, 310, 310);
-            } else if (qrImg) {
-                g.drawImage(qrImg, 225, 250, 310, 310);
+                    /*
+                     * Payment is successfully verified
+                     */
+
+                    paymentState.paymentId =
+                        data.paymentId ||
+                        response.razorpay_payment_id;
+
+                    $("#payment-success").hidden = false;
+
+                    $("#rz-message").textContent =
+                        "✅ Payment verified successfully. Your ticket is ready.";
+
+                    $("#open-razorpay").textContent =
+                        "✅ Payment verified";
+
+                    $("#open-razorpay").disabled = true;
+
+                    /*
+                     * Automatically generate the ticket
+                     */
+
+                    await generateTicketAfterPayment();
+
+                } catch (error) {
+
+                    console.error(
+                        "Payment verification error:",
+                        error
+                    );
+
+                    err.textContent =
+                        error.message ||
+                        "Could not verify the payment.";
+
+                    $("#open-razorpay").disabled = false;
+
+                    $("#open-razorpay").textContent =
+                        "💳 Pay securely with Razorpay";
+                }
             }
 
-            g.textAlign = "center";
-            g.fillStyle = "#f6d98a";
-            g.font = "bold 20px sans-serif";
-            g.fillText("SCAN AT EVENT ENTRANCE", 380, 620);
+            async function generateTicketAfterPayment() {
 
-            const rows = [
-                ["Name", tk.name],
-                ["Mobile", tk.phone],
-                ["Email", tk.email],
-                ["Ticket", tk.type + " × " + tk.q],
-                ["Admits", tk.ppl + (tk.ppl > 1 ? " people" : " person")],
-                ["Amount paid", inr(tk.amount)],
-                ["Payment ID", tk.paymentId]
-            ];
+                const err = $("#err2");
 
-            g.font = "22px sans-serif";
+                try {
 
-            rows.forEach((row, index) => {
-                const y = 675 + index * 48;
-                g.textAlign = "left";
+                    const bookingId =
+                        paymentState.bookingId;
+
+                    if (!bookingId) {
+                        throw new Error(
+                            "Booking ID is missing."
+                        );
+                    }
+
+                    /*
+                     * Get the verified ticket
+                     * from the server
+                     */
+
+                    const response = await fetch(
+                        "/api/ticket/" +
+                        encodeURIComponent(bookingId)
+                    );
+
+                    const data =
+                        await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(
+                            data.error ||
+                            data.message ||
+                            "Ticket is not available yet."
+                        );
+                    }
+
+                    /*
+                     * Show ticket
+                     */
+
+                    showVerifiedTicket(
+                        data.ticket || data,
+                        bookingId
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "Ticket generation error:",
+                        error
+                    );
+
+                    err.textContent =
+                        error.message ||
+                        "Payment succeeded, but ticket generation failed.";
+
+                }
+
+            }
+
+            $("#pay").onclick = createRazorpayOrder;
+
+            $("#back").onclick = () => {
+                $("#mt").textContent = "Book your tickets";
+                W("f");
+            };
+
+            let tk = null, tkMsg = "";
+            const waUrl = () => "https://wa.me/" + C.whatsapp + "?text=" + encodeURIComponent(tkMsg);
+            $("#twa").onclick = () => window.open(waUrl(), "_blank", "noopener");
+
+            function showVerifiedTicket(ticket, ticketToken) {
+                tk = {
+                    id: ticket.ticketId,
+                    name: ticket.name,
+                    phone: ticket.phone,
+                    email: ticket.email,
+                    type: ticket.ticket,
+                    q: ticket.quantity,
+                    ppl: ticket.admits,
+                    amount: ticket.amount,
+                    paymentId: ticket.paymentId,
+                    ticketToken
+                };
+
+                tkMsg =
+                    `Dandiya Raas 2026
+
+                    Booking ID: ${ticket.bookingId || ticket.ticketId}
+
+                    Name: ${ticket.name}
+
+                    Mobile: ${ticket.phone}
+
+                    Email: ${ticket.email}
+
+                    Ticket: ${ticket.ticket} × ${ticket.quantity}
+
+                    Admits: ${ticket.admits}
+
+                    Amount Paid: ${inr(ticket.amount)}
+
+                    Payment Status: PAID
+
+                    Please show this QR code at the entrance.`;
+
+                $("#twa").hidden = !C.whatsapp;
+
+                const box = $("#tq");
+                box.innerHTML = "";
+
+                const validationUrl =
+                    window.location.origin +
+                    "/api/ticket/verify/" +
+                    encodeURIComponent(ticketToken);
+
+                if (window.QRCode) {
+                    new QRCode(box, {
+                        text: validationUrl,
+                        width: 190,
+                        height: 190,
+                        correctLevel: QRCode.CorrectLevel.M
+                    });
+                } else {
+                    box.textContent = "QR unavailable";
+                }
+
+                $("#tid").textContent = ticket.ticketId;
+                $("#tn").textContent = ticket.name;
+                $("#tm").textContent = ticket.phone;
+                $("#te").textContent = ticket.email;
+                $("#tt").textContent = ticket.ticket + " × " + ticket.quantity;
+                $("#tp").textContent = ticket.admits + (ticket.admits > 1 ? " people" : " person");
+                $("#ta").textContent = inr(ticket.amount);
+                $("#tpi").textContent = ticket.paymentId;
+                $("#tnote").textContent = "✅ Payment verified. Your ticket is valid. Scan the QR code at the event entrance.";
+                $("#mt").textContent = "Your ticket";
+
+                W("t");
+
+                /* Automatically create/download the ticket after payment. */
+                setTimeout(downloadTicket, 250);
+            }
+
+            function downloadTicket() {
+                if (!tk) return;
+
+                const c = document.createElement("canvas");
+                c.width = 760;
+                c.height = 1100;
+
+                const g = c.getContext("2d");
+                if (!g) return;
+
+                g.fillStyle = "#1e0f2a";
+                g.fillRect(0, 0, c.width, c.height);
+
+                g.strokeStyle = "#e8b84a";
+                g.lineWidth = 5;
+                g.strokeRect(16, 16, c.width - 32, c.height - 32);
+
+                g.textAlign = "center";
+                g.fillStyle = "#f6d98a";
+                g.font = "bold 48px sans-serif";
+                g.fillText("DANDIYA RAAS", 380, 82);
+
                 g.fillStyle = "#bfae9c";
-                g.fillText(row[0], 58, y);
+                g.font = "22px sans-serif";
+                g.fillText("14 October 2026 · 5:30 PM onwards", 380, 120);
+                g.fillText("Beside PSF Ground, Kallur Layout, Hubli", 380, 152);
 
-                g.textAlign = "right";
-                g.fillStyle = "#f7eedd";
-                g.fillText(String(row[1]).slice(0, 45), 702, y);
-            });
+                g.fillStyle = "#f6d98a";
+                g.font = "bold 27px monospace";
+                g.fillText("BOOKING ID: " + tk.id, 380, 195);
 
-            g.textAlign = "center";
-            g.fillStyle = "#9dffbd";
-            g.font = "bold 24px sans-serif";
-            g.fillText("PAYMENT VERIFIED · TICKET VALID", 380, 1045);
+                g.fillStyle = "#fff";
+                g.fillRect(200, 225, 360, 360);
 
-            g.fillStyle = "#bfae9c";
-            g.font = "17px sans-serif";
-            g.fillText("Keep this ticket safe and show the QR at entry.", 380, 1075);
+                const qrCanvas = $("#tq canvas");
+                const qrImg = $("#tq img");
 
-            const link = document.createElement("a");
-            link.download = "dandiya-raas-ticket-" + tk.id + ".png";
-            link.href = c.toDataURL("image/png");
-            link.click();
-        }
+                if (qrCanvas) {
+                    g.imageSmoothingEnabled = false;
+                    g.drawImage(qrCanvas, 225, 250, 310, 310);
+                } else if (qrImg) {
+                    g.drawImage(qrImg, 225, 250, 310, 310);
+                }
 
-        $("#tsave").onclick = downloadTicket;
+                g.textAlign = "center";
+                g.fillStyle = "#f6d98a";
+                g.font = "bold 20px sans-serif";
+                g.fillText("SCAN AT EVENT ENTRANCE", 380, 620);
 
-        $("#tclose").onclick = () => {
-            M.classList.remove("on");
-            W("f");
-            $("#mt").textContent = "Book your tickets";
-            resetPaymentState();
-        };
+                const rows = [
+                    ["Name", tk.name],
+                    ["Mobile", tk.phone],
+                    ["Email", tk.email],
+                    ["Ticket", tk.type + " × " + tk.q],
+                    ["Admits", tk.ppl + (tk.ppl > 1 ? " people" : " person")],
+                    ["Amount paid", inr(tk.amount)],
+                    ["Payment ID", tk.paymentId]
+                ];
 
-        $("#dclose").onclick = () => {
-            M.classList.remove("on");
-            W("f");
-            $("#mt").textContent = "Book your tickets";
-            resetPaymentState();
-        };
-    </script>
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+                g.font = "22px sans-serif";
+
+                rows.forEach((row, index) => {
+                    const y = 675 + index * 48;
+                    g.textAlign = "left";
+                    g.fillStyle = "#bfae9c";
+                    g.fillText(row[0], 58, y);
+
+                    g.textAlign = "right";
+                    g.fillStyle = "#f7eedd";
+                    g.fillText(String(row[1]).slice(0, 45), 702, y);
+                });
+
+                g.textAlign = "center";
+                g.fillStyle = "#9dffbd";
+                g.font = "bold 24px sans-serif";
+                g.fillText("PAYMENT VERIFIED · TICKET VALID", 380, 1045);
+
+                g.fillStyle = "#bfae9c";
+                g.font = "17px sans-serif";
+                g.fillText("Keep this ticket safe and show the QR at entry.", 380, 1075);
+
+                const link = document.createElement("a");
+                link.download = "dandiya-raas-ticket-" + tk.id + ".png";
+                link.href = c.toDataURL("image/png");
+                link.click();
+            }
+
+            $("#tsave").onclick = downloadTicket;
+
+            $("#tclose").onclick = () => {
+                M.classList.remove("on");
+                W("f");
+                $("#mt").textContent = "Book your tickets";
+                resetPaymentState();
+            };
+
+            $("#dclose").onclick = () => {
+                M.classList.remove("on");
+                W("f");
+                $("#mt").textContent = "Book your tickets";
+                resetPaymentState();
+            };
+        </script>
+        <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 </body>
 
 </html>

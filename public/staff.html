@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Dandiya Raas - Staff Scanner</title>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: white;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 25px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .card {
+            background: #1d1d1d;
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 14px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #555;
+            background: #222;
+            color: white;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            background: #d4af37;
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #reader {
+            margin-top: 20px;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            display: none;
+        }
+
+        .valid {
+            background: #123d1c;
+            border: 2px solid #22c55e;
+        }
+
+        .invalid {
+            background: #401515;
+            border: 2px solid #ef4444;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>🎟️ Dandiya Raas</h1>
+
+        <div class="card">
+
+            <h2>Staff Ticket Scanner</h2>
+
+            <input id="secret" type="password" placeholder="Enter staff password">
+
+            <button onclick="startScanner()">
+                📷 Start Scanner
+            </button>
+
+            <div id="reader"></div>
+
+        </div>
+
+        <div id="result" class="result"></div>
+
+    </div>
+
+
+    <script>
+
+        let scanner;
+
+        async function startScanner() {
+
+            const secret =
+                document.getElementById("secret").value.trim();
+
+            if (!secret) {
+
+                alert(
+                    "Enter the staff password first."
+                );
+
+                return;
+            }
+
+            if (scanner) {
+
+                try {
+                    await scanner.clear();
+                } catch (_) { }
+
+            }
+
+            scanner =
+                new Html5Qrcode("reader");
+
+            scanner.start(
+
+                {
+                    facingMode: "environment"
+                },
+
+                {
+                    fps: 10,
+                    qrbox: {
+                        width: 250,
+                        height: 250
+                    }
+                },
+
+                async decodedText => {
+
+                    try {
+
+                        await scanner.stop();
+
+                    } catch (_) { }
+
+                    await verifyTicket(
+                        decodedText,
+                        secret
+                    );
+
+                },
+
+                errorMessage => {
+
+                    // Ignore normal scanner errors
+
+                }
+
+            );
+
+        }
+
+
+        async function verifyTicket(
+            qrText,
+            secret
+        ) {
+
+            const result =
+                document.getElementById("result");
+
+            result.style.display = "block";
+
+            result.className =
+                "result";
+
+            result.innerHTML =
+                "⏳ Verifying ticket...";
+
+            try {
+
+                /*
+                 * QR should contain:
+                 *
+                 * https://your-domain.com/api/ticket/verify/TOKEN
+                 */
+
+                const url =
+                    new URL(qrText);
+
+                const parts =
+                    url.pathname.split("/");
+
+                const token =
+                    parts[parts.length - 1];
+
+                if (!token) {
+
+                    throw new Error(
+                        "Invalid QR code."
+                    );
+
+                }
+
+                const response =
+                    await fetch(
+                        "/api/ticket/verify/" +
+                        encodeURIComponent(token),
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+
+                                "x-checkin-secret":
+                                    secret
+                            }
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if (!response.ok) {
+
+                    result.className =
+                        "result invalid";
+
+                    result.innerHTML = `
+        <h2>❌ ENTRY DENIED</h2>
+
+        <p>
+          ${data.message ||
+                        data.error ||
+                        "Invalid ticket"}
+        </p>
+      `;
+
+                    return;
+                }
+
+                const ticket =
+                    data.ticket || data;
+
+                result.className =
+                    "result valid";
+
+                result.innerHTML = `
+
+      <h2>✅ VALID TICKET</h2>
+
+      <p>
+        <strong>Booking ID:</strong>
+        ${ticket.booking_id ||
+                    ticket.bookingId ||
+                    ""}
+      </p>
+
+      <p>
+        <strong>Name:</strong>
+        ${ticket.customer_name ||
+                    ticket.name ||
+                    ""}
+      </p>
+
+      <p>
+        <strong>Ticket:</strong>
+        ${ticket.ticket_name ||
+                    ticket.ticket ||
+                    ""}
+      </p>
+
+      <p>
+        <strong>People:</strong>
+        ${ticket.ticket_count ||
+                    ticket.admits ||
+                    ""}
+      </p>
+
+      <h2>🎉 ALLOW ENTRY</h2>
+
+    `;
+
+            } catch (error) {
+
+                console.error(error);
+
+                result.className =
+                    "result invalid";
+
+                result.innerHTML = `
+
+      <h2>❌ INVALID QR</h2>
+
+      <p>
+        ${error.message}
+      </p>
+
+    `;
+
+            }
+
+        }
+
+    </script>
+
+</body>
+
+</html>
