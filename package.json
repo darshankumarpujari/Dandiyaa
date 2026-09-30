@@ -1,14 +1,19 @@
 {
-  "name": "dandiya-raas-razorpay",
+  "name": "dandiya-raas",
   "version": "1.0.0",
   "private": true,
-  "description": "Dandiya Raas 2026 ticketing site with Razorpay payment and UTR verification",
   "main": "server.js",
-  "scripts": {"start":"node server.js","dev":"node server.js"},
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "qrcode": "^1.5.4",
-    "razorpay": "^2.9.5"
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "pg": "^8.16.3",
+    "razorpay": "^2.9.6"
   }
 }
