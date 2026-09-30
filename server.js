@@ -1485,10 +1485,276 @@ app.get(
   }
 );
 
+
+/* =========================================================
+   GET TICKET
+========================================================= */
+
+app.get("/api/ticket/:bookingId", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+          booking_id,
+          ticket_type,
+          ticket_name,
+          ticket_count,
+          customer_name,
+          customer_phone,
+          customer_email,
+          amount,
+          razorpay_order_id,
+          razorpay_payment_id,
+          utr,
+          payment_status,
+          created_at,
+          paid_at,
+          checked_in,
+          checked_in_at
+       FROM bookings
+       WHERE booking_id = $1`,
+      [req.params.bookingId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Ticket not found",
+      });
+    }
+
+    const booking = result.rows[0];
+
+    if (booking.payment_status !== "paid") {
+      return res.status(403).json({
+        success: false,
+        message: "Payment is not confirmed",
+      });
+    }
+
+    return res.json({
+      success: true,
+      ticket: booking,
+    });
+
+  } catch (error) {
+    console.error("Ticket fetch error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to fetch ticket",
+    });
+  }
+});
+
+
+/* =========================================================
+   STAFF BOOKING VERIFICATION
+========================================================= */
+
+app.get("/api/staff/booking/:bookingId", async (req, res) => {
+  try {
+
+    const bookingId =
+      String(req.params.bookingId || "").trim();
+
+    if (!bookingId) {
+      return res.status(400).json({
+        valid: false,
+        error: "Booking ID is required."
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT
+          booking_id,
+          ticket_type,
+          ticket_name,
+          ticket_count,
+          customer_name,
+          customer_phone,
+          customer_email,
+          amount,
+          razorpay_order_id,
+          razorpay_payment_id,
+          payment_status,
+          created_at,
+          paid_at,
+          checked_in,
+          checked_in_at
+       FROM bookings
+       WHERE booking_id = $1`,
+      [bookingId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        valid: false,
+        error: "Booking ID not found."
+      });
+    }
+
+    const booking = result.rows[0];
+
+    if (booking.payment_status !== "paid") {
+      return res.status(403).json({
+        valid: false,
+        error: "Payment has not been confirmed."
+      });
+    }
+
+    return res.json({
+      valid: true,
+      ticket: booking
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Staff booking verification error:",
+      error
+    );
+
+    return res.status(500).json({
+      valid: false,
+      error: "Unable to verify booking."
+    });
+  }
+});
+
+
+/* =========================================================
+   STAFF CHECK-IN
+========================================================= */
+
+app.post("/api/staff/checkin", async (req, res) => {
+
+  const client = await pool.connect();
+
+  try {
+
+    const bookingId =
+      String(
+        req.body?.bookingId || ""
+      ).trim();
+
+    if (!bookingId) {
+
+      return res.status(400).json({
+        success: false,
+        error: "Booking ID is required."
+      });
+    }
+
+    await client.query("BEGIN");
+
+    /*
+     * Lock this booking so two staff members
+     * cannot check it in simultaneously.
+     */
+
+    const result =
+      await client.query(
+        `SELECT
+            booking_id,
+            customer_name,
+            payment_status,
+            checked_in,
+            checked_in_at
+         FROM bookings
+         WHERE booking_id = $1
+         FOR UPDATE`,
+        [bookingId]
+      );
+
+    if (result.rows.length === 0) {
+
+      await client.query("ROLLBACK");
+
+      return res.status(404).json({
+        success: false,
+        error: "Ticket not found."
+      });
+    }
+
+    const booking = result.rows[0];
+
+    if (
+      booking.payment_status !== "paid"
+    ) {
+
+      await client.query("ROLLBACK");
+
+      return res.status(403).json({
+        success: false,
+        error: "Payment has not been confirmed."
+      });
+    }
+
+    if (booking.checked_in) {
+
+      await client.query("ROLLBACK");
+
+      return res.status(409).json({
+        success: false,
+        alreadyCheckedIn: true,
+        error:
+          "This ticket has already been checked in."
+      });
+    }
+
+    await client.query(
+      `UPDATE bookings
+       SET
+          checked_in = TRUE,
+          checked_in_at = NOW()
+       WHERE booking_id = $1`,
+      [bookingId]
+    );
+
+    await client.query("COMMIT");
+
+    return res.json({
+      success: true,
+      bookingId,
+      customerName:
+        booking.customer_name,
+      message:
+        "Customer checked in successfully."
+    });
+
+  } catch (error) {
+
+    try {
+      await client.query("ROLLBACK");
+    } catch (_) { }
+
+    console.error(
+      "Staff check-in error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      error: "Check-in failed."
+    });
+
+  } finally {
+
+    client.release();
+
+  }
+});
+
 /* =========================================================
    FRONTEND FALLBACK
    Express 5 syntax — DO NOT use app.get("*")
 ========================================================= */
+app.get("/staff", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "public", "staff.html")
+  );
+});
+
 
 app.get(
   "/{*splat}",

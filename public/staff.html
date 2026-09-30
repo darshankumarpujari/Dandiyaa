@@ -2,142 +2,694 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Dandiya Raas - Staff Scanner</title>
+    <title>Dandiya Raas - Staff Verification</title>
 
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
+            min-height: 100vh;
             font-family: Arial, sans-serif;
-            background: #111;
+            background:
+                radial-gradient(circle at top, #35154d, #120817 60%);
             color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
         }
 
         .container {
-            max-width: 600px;
-            margin: auto;
-            padding: 25px;
+            width: 100%;
+            max-width: 520px;
         }
 
-        h1 {
+        .header {
             text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            font-size: 30px;
+            font-weight: 800;
+            color: #ffd45c;
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            color: #d8cde0;
+            margin-top: 6px;
         }
 
         .card {
-            background: #1d1d1d;
+            background: rgba(34, 18, 48, 0.96);
+            border: 1px solid #80602b;
+            border-radius: 22px;
+            padding: 22px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+        }
+
+        .scanner-title {
+            text-align: center;
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #ffd45c;
+        }
+
+        #reader {
+            width: 100%;
+            overflow: hidden;
             border-radius: 16px;
-            padding: 20px;
+            background: #000;
+        }
+
+        #reader video {
+            border-radius: 16px;
+        }
+
+        .manual {
             margin-top: 20px;
+            border-top: 1px solid #493352;
+            padding-top: 20px;
+        }
+
+        .manual-title {
+            text-align: center;
+            color: #ddd;
+            margin-bottom: 10px;
         }
 
         input {
             width: 100%;
-            box-sizing: border-box;
             padding: 14px;
-            margin: 10px 0;
-            border-radius: 8px;
-            border: 1px solid #555;
-            background: #222;
+            border-radius: 10px;
+            border: 1px solid #765f80;
+            background: #160d20;
             color: white;
+            font-size: 16px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #ffd45c;
         }
 
         button {
             width: 100%;
             padding: 14px;
-            border: none;
-            border-radius: 8px;
-            background: #d4af37;
-            color: black;
-            font-weight: bold;
+            margin-top: 10px;
+            border: 0;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #ffd45c, #ff8c28);
+            color: #1b0b22;
+            font-size: 16px;
+            font-weight: 800;
             cursor: pointer;
         }
 
-        #reader {
-            margin-top: 20px;
+        button:hover {
+            opacity: .92;
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
         }
 
         .result {
             margin-top: 20px;
-            padding: 20px;
-            border-radius: 12px;
             display: none;
+            border-radius: 16px;
+            padding: 20px;
         }
 
         .valid {
-            background: #123d1c;
-            border: 2px solid #22c55e;
+            background: rgba(20, 120, 70, .20);
+            border: 2px solid #35e38b;
         }
 
         .invalid {
-            background: #401515;
-            border: 2px solid #ef4444;
+            background: rgba(160, 30, 50, .20);
+            border: 2px solid #ff5267;
+        }
+
+        .result-title {
+            font-size: 26px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .valid .result-title {
+            color: #35e38b;
+        }
+
+        .invalid .result-title {
+            color: #ff5267;
+        }
+
+        .details {
+            display: grid;
+            gap: 8px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, .1);
+            padding: 8px 0;
+        }
+
+        .label {
+            color: #bdb2c5;
+        }
+
+        .value {
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .checkin {
+            background: #35e38b;
+            color: #07150e;
+        }
+
+        .checked {
+            background: #454545;
+            color: white;
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 12px;
+            font-weight: 700;
+        }
+
+        .instruction {
+            text-align: center;
+            color: #aaa;
+            font-size: 13px;
+            margin-top: 15px;
+        }
+
+        .staff-badge {
+            display: inline-block;
+            background: rgba(255, 212, 92, .12);
+            border: 1px solid #80602b;
+            padding: 6px 12px;
+            border-radius: 20px;
+            color: #ffd45c;
+            font-size: 13px;
+            margin-top: 10px;
         }
     </style>
-
 </head>
 
 <body>
 
     <div class="container">
 
-        <h1>🎟️ Dandiya Raas</h1>
+        <div class="header">
+            <div class="logo">DANDIYA RAAS</div>
+            <div class="subtitle">Official Entry Verification</div>
+            <div class="staff-badge">STAFF ACCESS</div>
+        </div>
 
         <div class="card">
 
-            <h2>Staff Ticket Scanner</h2>
-
-            <input id="secret" type="password" placeholder="Enter staff password">
-
-            <button onclick="startScanner()">
-                📷 Start Scanner
-            </button>
+            <div class="scanner-title">
+                📷 Scan Customer QR Ticket
+            </div>
 
             <div id="reader"></div>
 
-        </div>
+            <div class="instruction">
+                Ask the customer to show the QR code from their ticket.
+            </div>
 
-        <div id="result" class="result"></div>
+            <div class="manual">
+
+                <div class="manual-title">
+                    Or enter Booking ID manually
+                </div>
+
+                <input id="bookingId" type="text" placeholder="Example: DR26-A94D97BB" autocomplete="off">
+
+                <button onclick="verifyBookingId()">
+                    🔍 Verify Booking ID
+                </button>
+
+            </div>
+
+            <div id="result" class="result">
+
+                <div id="resultTitle" class="result-title"></div>
+
+                <div id="details" class="details"></div>
+
+                <button id="checkinButton" class="checkin" onclick="checkInTicket()" style="display:none;">
+                    ✅ CHECK IN CUSTOMER
+                </button>
+
+                <div id="status" class="status"></div>
+
+            </div>
+
+        </div>
 
     </div>
 
 
     <script>
 
-        let scanner;
+        let currentBookingId = null;
+        let scanner = null;
 
-        async function startScanner() {
 
-            const secret =
-                document.getElementById("secret").value.trim();
+        /* =========================================================
+           VERIFY QR
+        ========================================================= */
 
-            if (!secret) {
+        async function verifyQR(decodedText) {
 
-                alert(
-                    "Enter the staff password first."
+            try {
+
+                let token = null;
+
+                /*
+                 * QR normally contains:
+                 *
+                 * https://dandiyaa.vercel.app/api/ticket/verify/TOKEN
+                 */
+
+                if (decodedText.includes("/api/ticket/verify/")) {
+
+                    token =
+                        decodedText
+                            .split("/api/ticket/verify/")[1]
+                            .split("?")[0]
+                            .split("#")[0];
+
+                } else {
+
+                    /*
+                     * Also allow raw token
+                     */
+
+                    token = decodedText.trim();
+                }
+
+                if (!token) {
+                    showInvalid("Invalid QR code.");
+                    return;
+                }
+
+                const response = await fetch(
+                    "/api/ticket/verify/" +
+                    encodeURIComponent(token)
+                );
+
+                const data = await response.json();
+
+                if (!response.ok || data.valid !== true) {
+
+                    showInvalid(
+                        data.error ||
+                        data.message ||
+                        "This ticket is invalid."
+                    );
+
+                    return;
+                }
+
+                showValid(data.ticket || data);
+
+            } catch (error) {
+
+                console.error(error);
+
+                showInvalid(
+                    "Unable to verify ticket. Check your internet connection."
+                );
+            }
+        }
+
+
+        /* =========================================================
+           VERIFY BOOKING ID
+        ========================================================= */
+
+        async function verifyBookingId() {
+
+            const input =
+                document.getElementById("bookingId");
+
+            const bookingId =
+                input.value.trim();
+
+            if (!bookingId) {
+
+                showInvalid(
+                    "Please enter a Booking ID."
                 );
 
                 return;
             }
 
-            if (scanner) {
+            try {
 
-                try {
-                    await scanner.clear();
-                } catch (_) { }
+                const response = await fetch(
+                    "/api/staff/booking/" +
+                    encodeURIComponent(bookingId)
+                );
 
+                const data =
+                    await response.json();
+
+                if (!response.ok || !data.valid) {
+
+                    showInvalid(
+                        data.error ||
+                        "Ticket not found or payment not confirmed."
+                    );
+
+                    return;
+                }
+
+                showValid(data.ticket);
+
+            } catch (error) {
+
+                console.error(error);
+
+                showInvalid(
+                    "Unable to verify booking."
+                );
             }
+        }
+
+
+        /* =========================================================
+           SHOW VALID
+        ========================================================= */
+
+        function showValid(ticket) {
+
+            currentBookingId =
+                ticket.booking_id ||
+                ticket.bookingId;
+
+            const result =
+                document.getElementById("result");
+
+            const title =
+                document.getElementById("resultTitle");
+
+            const details =
+                document.getElementById("details");
+
+            const button =
+                document.getElementById("checkinButton");
+
+            const status =
+                document.getElementById("status");
+
+            result.style.display = "block";
+            result.className = "result valid";
+
+            title.textContent =
+                "✅ VALID TICKET";
+
+            details.innerHTML = `
+
+        <div class="row">
+            <span class="label">Booking ID</span>
+            <span class="value">
+                ${escapeHtml(
+                ticket.booking_id ||
+                ticket.bookingId ||
+                "-"
+            )}
+            </span>
+        </div>
+
+        <div class="row">
+            <span class="label">Customer</span>
+            <span class="value">
+                ${escapeHtml(
+                ticket.customer_name ||
+                ticket.name ||
+                "-"
+            )}
+            </span>
+        </div>
+
+        <div class="row">
+            <span class="label">Mobile</span>
+            <span class="value">
+                ${escapeHtml(
+                ticket.customer_phone ||
+                ticket.phone ||
+                "-"
+            )}
+            </span>
+        </div>
+
+        <div class="row">
+            <span class="label">Email</span>
+            <span class="value">
+                ${escapeHtml(
+                ticket.customer_email ||
+                ticket.email ||
+                "-"
+            )}
+            </span>
+        </div>
+
+        <div class="row">
+            <span class="label">Ticket</span>
+            <span class="value">
+                ${escapeHtml(
+                ticket.ticket_name ||
+                ticket.ticket ||
+                "-"
+            )}
+            </span>
+        </div>
+
+        <div class="row">
+            <span class="label">Quantity</span>
+            <span class="value">
+                ${escapeHtml(
+                String(
+                    ticket.ticket_count ||
+                    ticket.quantity ||
+                    "-"
+                )
+            )}
+            </span>
+        </div>
+
+        <div class="row">
+            <span class="label">Amount Paid</span>
+            <span class="value">
+                ₹${Number(
+                ticket.amount || 0
+            ) / 100}
+            </span>
+        </div>
+
+        <div class="row">
+            <span class="label">Payment</span>
+            <span class="value">
+                ✅ PAID
+            </span>
+        </div>
+
+    `;
+
+            if (ticket.checked_in) {
+
+                button.style.display = "none";
+
+                status.textContent =
+                    "⚠️ This ticket has already been checked in.";
+
+                status.style.color =
+                    "#ffd45c";
+
+            } else {
+
+                button.style.display = "block";
+
+                status.textContent =
+                    "Ticket is ready for entry.";
+
+                status.style.color =
+                    "#35e38b";
+            }
+        }
+
+
+        /* =========================================================
+           SHOW INVALID
+        ========================================================= */
+
+        function showInvalid(message) {
+
+            const result =
+                document.getElementById("result");
+
+            const title =
+                document.getElementById("resultTitle");
+
+            const details =
+                document.getElementById("details");
+
+            const button =
+                document.getElementById("checkinButton");
+
+            const status =
+                document.getElementById("status");
+
+            result.style.display = "block";
+            result.className = "result invalid";
+
+            title.textContent =
+                "❌ INVALID TICKET";
+
+            details.innerHTML = "";
+
+            button.style.display = "none";
+
+            status.textContent =
+                message;
+
+            status.style.color =
+                "#ff5267";
+
+            currentBookingId = null;
+        }
+
+
+        /* =========================================================
+           CHECK IN
+        ========================================================= */
+
+        async function checkInTicket() {
+
+            if (!currentBookingId) {
+
+                showInvalid(
+                    "No ticket selected."
+                );
+
+                return;
+            }
+
+            const button =
+                document.getElementById("checkinButton");
+
+            button.disabled = true;
+
+            button.textContent =
+                "Checking in...";
+
+            try {
+
+                const response = await fetch(
+                    "/api/staff/checkin",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            bookingId:
+                                currentBookingId
+                        })
+                    }
+                );
+
+                const data =
+                    await response.json();
+
+                if (!response.ok || !data.success) {
+
+                    throw new Error(
+                        data.error ||
+                        data.message ||
+                        "Check-in failed."
+                    );
+                }
+
+                button.textContent =
+                    "✅ CUSTOMER CHECKED IN";
+
+                button.className =
+                    "checked";
+
+                const status =
+                    document.getElementById("status");
+
+                status.textContent =
+                    "🎉 Entry approved. Customer may enter.";
+
+                status.style.color =
+                    "#35e38b";
+
+            } catch (error) {
+
+                button.disabled = false;
+
+                button.textContent =
+                    "✅ CHECK IN CUSTOMER";
+
+                alert(
+                    error.message ||
+                    "Could not check in customer."
+                );
+            }
+        }
+
+
+        /* =========================================================
+           HTML ESCAPE
+        ========================================================= */
+
+        function escapeHtml(value) {
+
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+
+        /* =========================================================
+           QR SCANNER
+        ========================================================= */
+
+        function startScanner() {
 
             scanner =
                 new Html5Qrcode("reader");
 
             scanner.start(
-
                 {
                     facingMode: "environment"
                 },
@@ -152,171 +704,66 @@
 
                 async decodedText => {
 
+                    console.log(
+                        "QR detected:",
+                        decodedText
+                    );
+
                     try {
 
                         await scanner.stop();
 
                     } catch (_) { }
 
-                    await verifyTicket(
-                        decodedText,
-                        secret
-                    );
+                    await verifyQR(decodedText);
 
+                    /*
+                     * Restart scanner after verification.
+                     */
+
+                    setTimeout(
+                        restartScanner,
+                        2500
+                    );
                 },
 
                 errorMessage => {
-
-                    // Ignore normal scanner errors
-
+                    // Ignore continuous scanner errors.
                 }
+            )
+                .catch(error => {
 
-            );
+                    console.error(
+                        "Camera error:",
+                        error
+                    );
 
+                    document.getElementById(
+                        "status"
+                    ).textContent =
+                        "Camera permission is required for QR scanning.";
+                });
         }
 
 
-        async function verifyTicket(
-            qrText,
-            secret
-        ) {
+        function restartScanner() {
 
-            const result =
-                document.getElementById("result");
+            document.getElementById(
+                "reader"
+            ).innerHTML = "";
 
-            result.style.display = "block";
-
-            result.className =
-                "result";
-
-            result.innerHTML =
-                "⏳ Verifying ticket...";
-
-            try {
-
-                /*
-                 * QR should contain:
-                 *
-                 * https://your-domain.com/api/ticket/verify/TOKEN
-                 */
-
-                const url =
-                    new URL(qrText);
-
-                const parts =
-                    url.pathname.split("/");
-
-                const token =
-                    parts[parts.length - 1];
-
-                if (!token) {
-
-                    throw new Error(
-                        "Invalid QR code."
-                    );
-
-                }
-
-                const response =
-                    await fetch(
-                        "/api/ticket/verify/" +
-                        encodeURIComponent(token),
-                        {
-                            method: "POST",
-
-                            headers: {
-                                "Content-Type":
-                                    "application/json",
-
-                                "x-checkin-secret":
-                                    secret
-                            }
-                        }
-                    );
-
-                const data =
-                    await response.json();
-
-                if (!response.ok) {
-
-                    result.className =
-                        "result invalid";
-
-                    result.innerHTML = `
-        <h2>❌ ENTRY DENIED</h2>
-
-        <p>
-          ${data.message ||
-                        data.error ||
-                        "Invalid ticket"}
-        </p>
-      `;
-
-                    return;
-                }
-
-                const ticket =
-                    data.ticket || data;
-
-                result.className =
-                    "result valid";
-
-                result.innerHTML = `
-
-      <h2>✅ VALID TICKET</h2>
-
-      <p>
-        <strong>Booking ID:</strong>
-        ${ticket.booking_id ||
-                    ticket.bookingId ||
-                    ""}
-      </p>
-
-      <p>
-        <strong>Name:</strong>
-        ${ticket.customer_name ||
-                    ticket.name ||
-                    ""}
-      </p>
-
-      <p>
-        <strong>Ticket:</strong>
-        ${ticket.ticket_name ||
-                    ticket.ticket ||
-                    ""}
-      </p>
-
-      <p>
-        <strong>People:</strong>
-        ${ticket.ticket_count ||
-                    ticket.admits ||
-                    ""}
-      </p>
-
-      <h2>🎉 ALLOW ENTRY</h2>
-
-    `;
-
-            } catch (error) {
-
-                console.error(error);
-
-                result.className =
-                    "result invalid";
-
-                result.innerHTML = `
-
-      <h2>❌ INVALID QR</h2>
-
-      <p>
-        ${error.message}
-      </p>
-
-    `;
-
-            }
-
+            startScanner();
         }
+
+
+        /* =========================================================
+           START
+        ========================================================= */
+
+        window.addEventListener(
+            "load",
+            startScanner
+        );
 
     </script>
 
